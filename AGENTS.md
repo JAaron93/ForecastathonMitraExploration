@@ -21,7 +21,7 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 ## Directory Structure
 
 ```
-├── notebooks/           # Marimo notebooks (01-06, not yet created)
+├── notebooks/           # Marimo notebooks (01-06)
 ├── src/
 │   ├── data/           # Data loading, preprocessing, validation, profiling, splitting
 │   ├── features/       # Feature engineering, technical indicators, regime detection
@@ -29,7 +29,7 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 │   ├── evaluation/     # Metrics, calibration, explainability
 │   ├── trading/        # Signal generation, portfolio utilities
 │   └── utils/          # Experiment tracking, logging, visualization
-├── config/             # YAML configuration files
+├── config/             # YAML configuration files & templates
 ├── data/               # raw/, processed/, external/
 ├── models/             # Saved model artifacts by type
 ├── experiments/        # MLflow runs
@@ -39,20 +39,19 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 
 ## Current Implementation Status
 
-### Completed (Tasks 1-3.1)
+### Completed
 - [x] Project structure and core infrastructure
 - [x] Testing framework with pytest + hypothesis
 - [x] CI pipeline (GitHub Actions)
 - [x] Data processing: `DataLoader`, `Preprocessor`, `DataValidator`, `DataProfiler`, `TimeSeriesSplitter`
 - [x] Feature engineering: lag features, rolling stats, technical indicators (RSI, MACD, Bollinger), regime detection, calendar features
-- [x] Property tests for data validation, time series operations, feature engineering
-
-### In Progress (Task 4+)
-- [ ] Base model interface and evaluation framework
-- [ ] Model implementations (Naive Bayes, XGBoost, LSTM, Mitra)
-- [ ] Trading signal generation
-- [ ] Error handling and monitoring infrastructure
-- [ ] Marimo notebooks (01-06)
+- [x] Base model interface and evaluation framework
+- [x] Model implementations (Naive Bayes, XGBoost, LSTM, Mitra)
+- [x] Trading signal generation
+- [x] Error handling and monitoring infrastructure
+- [x] configuration templates (`config/templates/`)
+- [x] Marimo notebooks (01-06)
+- [x] Integration tests (`tests/integration/test_pipeline_e2e.py`)
 
 ## Key Modules
 
@@ -66,6 +65,11 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 | `FeatureEngineer` | `src/features/engineering.py` | Lag, rolling, cross-asset features |
 | `TechnicalIndicators` | `src/features/technical_indicators.py` | RSI, MACD, Bollinger Bands |
 | `RegimeDetector` | `src/features/regime_detection.py` | HMM, volatility regime detection |
+| `NaiveBayesModel` | `src/models/naive_bayes.py` | Gaussian Naive Bayes wrapper (Baseline) |
+| `XGBoostModel` | `src/models/xgboost_model.py` | XGBoost with Optuna tuning wrapper |
+| `LSTMModel` | `src/models/lstm_model.py` | PyTorch LSTM wrapper for sequences |
+| `MitraModel` | `src/models/mitra_model.py` | AutoGluon/Mitra foundation model wrapper |
+| `MetricsCalculator` | `src/evaluation/metrics.py` | Classification, regression, and trading metrics |
 
 ## Configuration Files
 
@@ -73,6 +77,7 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 - `config/model_config.yaml` - Model hyperparameters for all model families
 - `config/experiment_config.yaml` - MLflow and experiment settings
 - `config/logging_config.yaml` - Structured logging configuration
+- `config/templates/` - Ready-made configs for `dev_fast` and `prod_full` environments.
 
 ## Testing Strategy
 
@@ -91,9 +96,12 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 10. Experiment tracking and monitoring accuracy
 11. Configuration flexibility and validation
 
+**Integration Tests**:
+- `tests/integration/test_pipeline_e2e.py`: Validates the full workflow from data loading to model saving.
+
 Run tests: `pytest tests/ -v --cov=src --cov-report=html`
 
-## Planned Notebooks
+## Notebooks
 
 | Notebook | Purpose |
 |----------|---------|
@@ -118,6 +126,7 @@ Run tests: `pytest tests/ -v --cov=src --cov-report=html`
 - **Time-series aware splitting**: Prevents data leakage
 - **Mitra for regime adaptation**: Adapts to market changes without retraining
 - **Structured logging**: JSON format to `logs/` directories with retention policies
+- **Configurability**: Everything is driven by YAML configs to separate code from parameters.
 
 ## Error Handling
 
@@ -129,7 +138,7 @@ Run tests: `pytest tests/ -v --cov=src --cov-report=html`
 
 ```bash
 # Install dependencies
-pip install -e .
+pip install -e ".[dev]"
 
 # Run tests
 pytest tests/ -v
@@ -139,6 +148,9 @@ pytest tests/ --cov=src --cov-report=html
 
 # Run property tests only
 pytest tests/ -v -k "property"
+
+# Run integration tests only
+pytest tests/integration/
 
 # Type checking
 mypy src/

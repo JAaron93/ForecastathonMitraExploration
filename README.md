@@ -120,8 +120,8 @@ Configuration is managed via YAML files in the `config/` directory:
 ### Templates
 
 See `config/templates/` for example configurations:
-*   `dev_fast.yaml`: Fast iteration (subsampled data, minimal epochs).
-*   `prod_full.yaml`: Production training (full data, exhaustive tuning).
+*   `experiment_config_dev.yaml` / `model_config_dev.yaml`: Development/fast iteration (minimal epochs, small n_trials).
+*   `experiment_config_prod.yaml` / `model_config_prod.yaml`: Production training (full data, exhaustive tuning).
 
 ## Testing
 
