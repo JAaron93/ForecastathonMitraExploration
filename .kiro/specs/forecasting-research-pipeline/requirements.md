@@ -1,0 +1,182 @@
+# Requirements Document
+
+## Introduction
+
+This document specifies the requirements for a forecasting research pipeline designed for the Autonity/Forecastathon trading competition. The system will provide a modular, Marimo notebook-based workflow that processes time-series and tabular data, performs feature engineering, trains multiple model families, and generates trading guidance for Forecastathon markets. Marimo notebooks are used for their reactive execution, git-friendly pure Python format, and built-in interactivity.
+
+## Glossary
+
+- **Forecasting_Pipeline**: The complete system for data processing, model training, and trading decision generation
+- **Autonity**: The blockchain platform hosting the Forecastathon trading competition
+- **Forecastathon**: The trading competition platform where predictions are submitted
+- **Model_Family**: A category of machine learning models (Naive Bayes, XGBoost, LSTM, Mitra)
+- **Feature_Engineering**: The process of creating predictive variables from raw time-series data
+- **Time_Series_Split**: A data splitting method that respects temporal ordering to prevent data leakage
+- **Trading_Signal**: Model output converted into actionable buy/sell/hold recommendations
+- **Mitra_Model**: A tabular foundation model that uses in-context learning (ICL) to generalize to new tasks by conditioning on support examples without gradient updates
+- **Research_Dashboard**: A summary interface showing model performance and trading recommendations
+- **Test_Coverage**: The percentage of code lines executed during automated testing
+- **Schema_Validation**: The process of verifying data structure and types against predefined specifications
+- **Experiment_Tracking**: The systematic recording of model parameters, metrics, and artifacts for reproducibility
+- **Monitoring_Dashboard**: A real-time interface displaying system health, performance metrics, and alerts
+- **Marimo_Notebook**: A reactive Python notebook format that stores notebooks as pure Python files (.py) with automatic dependency tracking and built-in interactivity
+
+## Requirements
+
+### Requirement 1
+
+**User Story:** As a quantitative researcher, I want to ingest and preprocess diverse financial time-series data, so that I can create a clean, aligned dataset for model training.
+
+#### Acceptance Criteria
+
+1. WHEN the system loads historical data from CSV or Parquet files, THE Forecasting_Pipeline SHALL validate data schemas and handle missing values appropriately
+2. WHEN multiple time series with different frequencies are provided, THE Forecasting_Pipeline SHALL resample and align them to a consistent time grid
+3. WHEN outliers are detected in the data, THE Forecasting_Pipeline SHALL apply configurable treatment methods while preserving data integrity
+4. WHEN data preprocessing is complete, THE Forecasting_Pipeline SHALL save processed datasets with metadata to disk for downstream use
+5. WHERE data sources include BTC prices, macro indicators, or Autonity oracle feeds, THE Forecasting_Pipeline SHALL handle each data type according to its specific characteristics
+
+### Requirement 2
+
+**User Story:** As a quantitative researcher, I want to engineer comprehensive features from raw time-series data, so that I can capture predictive patterns for volatility and price movements.
+
+#### Acceptance Criteria
+
+1. WHEN raw time-series data is processed, THE Forecasting_Pipeline SHALL generate lag features, rolling statistics, and technical indicators
+2. WHEN volatility features are computed, THE Forecasting_Pipeline SHALL calculate realized volatility measures and regime indicators
+3. WHEN cross-asset features are needed, THE Forecasting_Pipeline SHALL create correlation and spread features between related instruments
+4. WHEN calendar effects are relevant, THE Forecasting_Pipeline SHALL generate time-based features including day-of-week and holiday indicators
+5. WHEN feature engineering is complete, THE Forecasting_Pipeline SHALL save feature definitions and engineered datasets for model training
+
+### Requirement 3
+
+**User Story:** As a quantitative researcher, I want to split data using time-series aware methods, so that I can evaluate models without data leakage.
+
+#### Acceptance Criteria
+
+1. WHEN data is split for model evaluation, THE Forecasting_Pipeline SHALL use rolling or expanding window methods that respect temporal ordering
+2. WHEN train/validation/test splits are created, THE Forecasting_Pipeline SHALL ensure no future information leaks into training data
+3. WHEN split indices are generated, THE Forecasting_Pipeline SHALL save them with metadata for reproducible experiments
+4. WHERE multiple evaluation periods are needed, THE Forecasting_Pipeline SHALL support configurable split strategies
+
+### Requirement 4
+
+**User Story:** As a quantitative researcher, I want to quickly iterate with baseline models, so that I can validate data quality and feature effectiveness before training complex models.
+
+#### Acceptance Criteria
+
+1. WHEN baseline experiments are run, THE Forecasting_Pipeline SHALL use Naive Bayes models for fast iteration cycles
+2. WHEN different feature subsets are tested, THE Forecasting_Pipeline SHALL provide utilities to quickly swap feature configurations
+3. WHEN baseline results are computed, THE Forecasting_Pipeline SHALL calculate accuracy, Brier score, log-loss, and directional hit rates
+4. WHEN experiment results are generated, THE Forecasting_Pipeline SHALL log them in a structured format for comparison
+5. WHERE target definitions need testing, THE Forecasting_Pipeline SHALL support configurable label discretization methods
+
+### Requirement 5
+
+**User Story:** As a quantitative researcher, I want to train XGBoost models with systematic hyperparameter optimization, so that I can achieve strong performance on tabular forecasting tasks.
+
+#### Acceptance Criteria
+
+1. WHEN XGBoost models are trained, THE Forecasting_Pipeline SHALL implement systematic hyperparameter tuning using time-series cross-validation
+2. WHEN model evaluation is performed, THE Forecasting_Pipeline SHALL compute metrics aligned with trading applications including calibration analysis
+3. WHEN feature importance is analyzed, THE Forecasting_Pipeline SHALL generate gain-based, split-based, and permutation importance measures
+4. WHEN model explainability is required, THE Forecasting_Pipeline SHALL integrate SHAP analysis for key predictions and time periods
+5. WHEN training is complete, THE Forecasting_Pipeline SHALL save model artifacts, hyperparameters, and evaluation results
+
+### Requirement 6
+
+**User Story:** As a quantitative researcher, I want to train LSTM models on sequential data, so that I can capture temporal dependencies in financial time series.
+
+#### Acceptance Criteria
+
+1. WHEN sequence models are trained, THE Forecasting_Pipeline SHALL create sliding window inputs from processed time-series data
+2. WHEN LSTM architecture is configured, THE Forecasting_Pipeline SHALL support adjustable layers, hidden sizes, and dropout parameters
+3. WHEN sequence model evaluation is performed, THE Forecasting_Pipeline SHALL use time-series aware validation with rolling evaluation
+4. WHEN LSTM explainability is needed, THE Forecasting_Pipeline SHALL provide feature ablation and temporal importance analysis
+5. WHEN training is complete, THE Forecasting_Pipeline SHALL save model weights and configurations in a consistent format
+
+### Requirement 7
+
+**User Story:** As a quantitative researcher, I want to integrate Mitra tabular foundation models using in-context learning, so that I can leverage pretrained knowledge for financial forecasting without gradient updates.
+
+#### Acceptance Criteria
+
+1. WHEN Mitra models are used, THE Forecasting_Pipeline SHALL integrate them via AutoGluon 1.4+ framework using the official Mitra classifier and regressor models
+2. WHEN in-context learning workflows are implemented, THE Forecasting_Pipeline SHALL create support/query splits where the model conditions on support examples to predict query labels
+3. WHEN Mitra evaluation is performed, THE Forecasting_Pipeline SHALL use both 2-D attention across rows and features and 1-D row-wise attention as supported by the model architecture
+4. WHEN multiple market regimes are present, THE Forecasting_Pipeline SHALL leverage Mitra's ability to adapt to different data distributions through in-context learning
+5. WHEN Mitra results are generated, THE Forecasting_Pipeline SHALL save predictions and support/query configurations for comparison with gradient-based models
+
+### Requirement 8
+
+**User Story:** As a quantitative researcher, I want to compare models systematically and generate trading decisions, so that I can select optimal strategies for Forecastathon competition.
+
+#### Acceptance Criteria
+
+1. WHEN model comparison is performed, THE Forecasting_Pipeline SHALL load artifacts from all trained models and normalize evaluation metrics
+2. WHEN robustness analysis is conducted, THE Forecasting_Pipeline SHALL evaluate model performance across different market regimes
+3. WHEN ensemble methods are explored, THE Forecasting_Pipeline SHALL support weighted averaging and voting combinations
+4. WHEN trading rules are generated, THE Forecasting_Pipeline SHALL convert model outputs into position sizing and directional recommendations
+5. WHEN research dashboard is created, THE Forecasting_Pipeline SHALL summarize model recommendations and optimal configurations for production use
+
+### Requirement 9
+
+**User Story:** As a quantitative researcher, I want modular, reusable code components with comprehensive testing, so that I can maintain clean notebooks and ensure code reliability.
+
+#### Acceptance Criteria
+
+1. WHEN shared functionality is needed, THE Forecasting_Pipeline SHALL encapsulate common operations in Python modules under organized directory structure
+2. WHEN configuration management is required, THE Forecasting_Pipeline SHALL use YAML or JSON files for paths, parameters, and experiment settings
+3. WHEN notebooks are created, THE Forecasting_Pipeline SHALL include clear markdown documentation explaining assumptions and extension methods
+4. WHEN code reuse is needed, THE Forecasting_Pipeline SHALL provide utilities for data loading, metric computation, and experiment logging
+5. WHERE reproducibility is required, THE Forecasting_Pipeline SHALL support configuration-driven reruns with consistent results
+6. WHEN unit tests are executed, THE Forecasting_Pipeline SHALL achieve minimum 80% code coverage and generate test reports saved to tests/reports/
+7. WHEN integration tests are run, THE Forecasting_Pipeline SHALL validate end-to-end workflows and save results to tests/integration_reports/
+8. WHEN continuous integration gates are triggered, THE Forecasting_Pipeline SHALL pass all test suites before allowing code merges
+
+### Requirement 10
+
+**User Story:** As a quantitative researcher, I want to serialize and deserialize model outputs and configurations, so that I can reproduce experiments and compare results across different runs.
+
+#### Acceptance Criteria
+
+1. WHEN model training is complete, THE Forecasting_Pipeline SHALL serialize trained models to disk in standard formats
+2. WHEN experiment configurations are saved, THE Forecasting_Pipeline SHALL encode them using JSON format for reproducibility
+3. WHEN model artifacts are loaded, THE Forecasting_Pipeline SHALL deserialize them while preserving all metadata and performance metrics
+4. WHEN configuration files are processed, THE Forecasting_Pipeline SHALL validate them against expected schemas before execution
+5. WHERE cross-notebook data sharing is needed, THE Forecasting_Pipeline SHALL maintain consistent serialization formats across all components
+
+### Requirement 11
+
+**User Story:** As a quantitative researcher, I want to leverage Mitra's in-context learning for regime adaptation, so that I can handle changing market conditions without retraining models.
+
+#### Acceptance Criteria
+
+1. WHEN market regime changes are detected, THE Forecasting_Pipeline SHALL use Mitra's in-context learning to adapt predictions using recent examples as support sets
+2. WHEN support sets are constructed for Mitra, THE Forecasting_Pipeline SHALL select representative examples from current market conditions to maximize adaptation effectiveness
+3. WHEN comparing Mitra with traditional models, THE Forecasting_Pipeline SHALL evaluate both zero-shot performance and few-shot adaptation capabilities
+4. WHEN ensemble methods include Mitra, THE Forecasting_Pipeline SHALL weight Mitra predictions based on support set quality and regime similarity
+5. WHERE tabular data patterns vary significantly, THE Forecasting_Pipeline SHALL utilize Mitra's pretraining on diverse synthetic priors to handle feature interactions and dependencies
+
+### Requirement 12
+
+**User Story:** As a quantitative researcher, I want robust error handling and validation, so that I can identify and resolve issues quickly during data processing and model training.
+
+#### Acceptance Criteria
+
+1. WHEN data schema validation fails, THE Forecasting_Pipeline SHALL log data quality metrics including null_count per column, unique_count, value_ranges, schema_violations, and PSI distribution shift scores in JSON format to logs/data_validation/{run_id}_validation_report.json
+2. WHEN model training encounters errors, THE Forecasting_Pipeline SHALL implement retry semantics with max_retries=5, initial_backoff_seconds=2, backoff_multiplier=2, max_backoff_seconds=60 and log failure details to logs/model_training/{run_id}_training_failures.json
+3. WHEN configuration files are invalid, THE Forecasting_Pipeline SHALL validate them against JSON schemas and provide specific error messages with suggested corrections including line numbers and expected value types
+4. WHEN data processing pipelines fail, THE Forecasting_Pipeline SHALL save intermediate state including partial outputs, last successful DAG node, execution context with input parameters and environment variables, and sampled data snapshots to logs/pipeline_state/{run_id}/ with 30-day retention policy
+5. WHEN critical errors occur, THE Forecasting_Pipeline SHALL generate structured error logs with ISO timestamps, full stack traces, system context including memory usage and disk space to logs/errors/{run_id}_critical_errors.json
+
+### Requirement 13
+
+**User Story:** As a quantitative researcher, I want comprehensive observability and experiment tracking, so that I can monitor pipeline performance and compare experimental results systematically.
+
+#### Acceptance Criteria
+
+1. WHEN experiments are executed, THE Forecasting_Pipeline SHALL track all hyperparameters, metrics, and artifacts using MLflow or similar framework with metadata saved to experiments/
+2. WHEN model training progresses, THE Forecasting_Pipeline SHALL log training metrics, loss curves, and resource utilization with real-time monitoring dashboards
+3. WHEN performance thresholds are exceeded, THE Forecasting_Pipeline SHALL trigger alerts for memory usage above 90%, training time beyond expected duration, and model accuracy below baseline
+4. WHEN experiment runs complete, THE Forecasting_Pipeline SHALL retain all artifacts, logs, and metadata for minimum 90 days with automated cleanup policies
+5. WHEN monitoring dashboards are accessed, THE Forecasting_Pipeline SHALL display experiment comparisons, model performance trends, and system health metrics with data refreshed every 5 minutes
