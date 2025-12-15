@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "logging": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer" },
+        "disable_existing_loggers": { "type": "boolean" },
+        "formatters": { "type": "object" },
+        "handlers": { "type": "object" },
+        "root": { "type": "object" }
+      },
+      "required": ["version", "handlers", "root"]
+    },
+    "error_handling": {
+      "type": "object",
+      "properties": {
+        "retry": {
+          "type": "object",
+          "properties": {
+            "max_retries": { "type": "integer", "minimum": 0 },
+            "initial_backoff_seconds": { "type": "number", "minimum": 0 },
+            "backoff_multiplier": { "type": "number", "minimum": 1 },
+            "max_backoff_seconds": { "type": "number", "minimum": 0 }
+          }
+        },
+        "pipeline_state": {
+          "type": "object",
+          "properties": {
+            "retention_days": { "type": "integer", "minimum": 1 },
+            "save_path": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "required": ["logging"]
+}

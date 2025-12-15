@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "experiment": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tracking_uri": { "type": "string" },
+        "artifact_location": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "evaluation": {
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "classification": { "type": "array", "items": { "type": "string" } },
+            "regression": { "type": "array", "items": { "type": "string" } },
+            "trading": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "cross_validation": {
+      "type": "object",
+      "properties": {
+        "method": { "type": "string" },
+        "n_splits": { "type": "integer", "minimum": 2 },
+        "gap": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "required": ["experiment"]
+}

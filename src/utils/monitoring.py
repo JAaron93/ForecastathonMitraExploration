@@ -7,7 +7,8 @@ import time
 import psutil
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Callable, Any
+from collections import deque
+from typing import Dict, List, Optional, Callable, Any, Deque
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -46,10 +47,11 @@ class AlertManager:
     Manages performance alerts.
     """
     
-    def __init__(self):
+    def __init__(self, history_max_size: int = 100):
+        self.history_max_size = history_max_size
         self._alerts: Dict[str, AlertConfig] = {}
         self._last_triggered: Dict[str, datetime] = {}
-        self._triggered_alerts: List[Dict[str, Any]] = []
+        self._triggered_alerts: Deque[Dict[str, Any]] = deque(maxlen=history_max_size)
         
     def add_alert(self, name: str, config: AlertConfig) -> None:
         """Add an alert configuration."""
@@ -95,18 +97,23 @@ class AlertManager:
         
     def get_triggered_history(self) -> List[Dict[str, Any]]:
         """Get history of triggered alerts."""
-        return self._triggered_alerts
+        return list(self._triggered_alerts)
+
+    def clear_history(self) -> None:
+        """Clear the alert history."""
+        self._triggered_alerts.clear()
 
 class SystemMonitor:
     """
     Monitors system resources in the background.
     """
     
-    def __init__(self, interval_seconds: float = 5.0):
+    def __init__(self, interval_seconds: float = 5.0, history_max_size: int = 1000):
         self.interval_seconds = interval_seconds
+        self.history_max_size = history_max_size
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self._usage_history: List[ResourceUsage] = []
+        self._usage_history: Deque[ResourceUsage] = deque(maxlen=history_max_size)
         self._alert_manager = AlertManager()
         
         # Default alerts

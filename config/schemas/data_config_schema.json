@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "data_sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "format": { "type": "string" },
+          "schema": { "type": "object" }
+        },
+        "required": ["path"]
+      }
+    },
+    "preprocessing": {
+      "type": "object",
+      "properties": {
+        "missing_value_strategy": {
+            "type": "string",
+            "enum": ["drop", "mean", "median", "mode", "forward_fill", "backward_fill", "zero"]
+        },
+        "outlier_detection_method": {
+            "type": "string",
+            "enum": ["zscore", "iqr", "isolation_forest", "none"]
+        }
+      }
+    },
+    "feature_engineering": {
+      "type": "object",
+      "properties": {
+        "lag_periods": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 }
+        },
+        "rolling_windows": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 2 }
+        }
+      }
+    }
+  },
+  "required": ["data_sources"]
+}

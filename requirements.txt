@@ -50,6 +50,7 @@ mypy>=1.5.0
 # Configuration
 pyyaml>=6.0.0
 python-json-logger>=2.0.0
+jsonschema>=4.18.0
 
 # Utilities
 tqdm>=4.66.0
