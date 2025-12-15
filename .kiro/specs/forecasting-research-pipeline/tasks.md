@@ -119,14 +119,14 @@
 - [x] 9. Checkpoint - Ensure all core models are working
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Build model comparison and ensemble framework
+- [x] 10. Build model comparison and ensemble framework
   - Create model artifact loading and normalization utilities
   - Implement ensemble methods (weighted averaging, voting)
   - Build robustness analysis across market regimes
   - Create model comparison visualization and reporting
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 10.1 Write property test for ensemble and comparison
+- [x] 10.1 Write property test for ensemble and comparison
   - **Property 7: Ensemble and comparison consistency**
   - **Validates: Requirements 8.1, 8.2, 8.3**
 
