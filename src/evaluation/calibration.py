@@ -61,7 +61,15 @@ class CalibrationAnalyzer:
 
         # Handle 2D probability arrays
         if y_proba.ndim == 2:
+            if y_proba.shape[1] != 2:
+                raise ValueError(
+                    f"For 2D probability arrays, expected shape (n, 2), got {y_proba.shape}"
+                )
             y_proba = y_proba[:, 1]
+        elif y_proba.ndim != 1:
+            raise ValueError(
+                f"y_proba must be 1D or 2D array, got {y_proba.ndim}D"
+            )
 
         bin_boundaries = np.linspace(0, 1, self.n_bins + 1)
         bin_centers = (bin_boundaries[:-1] + bin_boundaries[1:]) / 2

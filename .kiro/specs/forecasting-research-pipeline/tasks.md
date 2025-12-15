@@ -65,14 +65,14 @@
   - **Property 5: Model training and evaluation correctness (metrics component)**
   - **Validates: Requirements 4.3, 5.2**
 
-- [ ] 5. Implement Naive Bayes baseline model
+- [x] 5. Implement Naive Bayes baseline model
   - Create NaiveBayesModel class extending BaseModel
   - Implement label discretization utilities for classification setup
   - Add feature subset selection and quick iteration utilities
   - Build experiment logging for baseline comparisons
   - _Requirements: 4.1, 4.2, 4.4, 4.5_
 
-- [ ] 5.1 Write property test for Naive Bayes model
+- [x] 5.1 Write property test for Naive Bayes model
   - **Property 5: Model training and evaluation correctness (Naive Bayes component)**
   - **Validates: Requirements 4.1**
 

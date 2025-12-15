@@ -70,6 +70,7 @@ class BaseModel(ABC):
         self.validation_metrics: Dict[str, float] = {}
         self.training_time: float = 0.0
         self._created_at: datetime = datetime.now()
+        self.metadata: Dict[str, Any] = {}
 
     @property
     @abstractmethod
@@ -194,6 +195,7 @@ class BaseModel(ABC):
         self.feature_names = metadata["feature_names"]
         self.training_time = metadata["training_time"]
         self._created_at = datetime.fromisoformat(metadata["created_at"])
+        self.metadata = metadata.get("metadata", {})
         self.is_fitted = True
 
         logger.info(f"Model loaded from {load_dir}")
@@ -217,6 +219,7 @@ class BaseModel(ABC):
             feature_names=self.feature_names,
             training_time=self.training_time,
             created_at=self._created_at,
+            metadata=self.metadata,
         )
 
     def _generate_model_id(self) -> str:
