@@ -104,7 +104,7 @@
   - **Property 5: Model training and evaluation correctness (LSTM component)**
   - **Validates: Requirements 6.2**
 
-- [ ] 8. Integrate Mitra tabular foundation model
+- [x] 8. Integrate Mitra tabular foundation model
   - Create MitraModel class integrating AutoGluon 1.4+ with official Mitra models
   - Implement support/query split generation for in-context learning
   - Build regime adaptation utilities using recent examples as support sets
@@ -112,7 +112,7 @@
   - Implement ensemble weighting based on support set quality
   - _Requirements: 7.1, 7.2, 7.4, 7.5, 11.1, 11.2, 11.3, 11.4_
 
-- [ ] 8.1 Write property test for Mitra in-context learning
+- [x] 8.1 Write property test for Mitra in-context learning
   - **Property 6: Mitra in-context learning adaptation**
   - **Validates: Requirements 7.4, 11.1, 11.2, 11.3, 11.4**
 
