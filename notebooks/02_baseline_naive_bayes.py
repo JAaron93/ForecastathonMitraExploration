@@ -88,7 +88,7 @@ def __(CONFIG, LabelDiscretizer, df, np, pd):
     
     # Forward return: (Price_{t+k} / Price_t) - 1
     # We use shift(-k) to align future value to current row
-    future_return = df[target_col].pct_change(lookahead).shift(-lookahead)
+    future_return = (df[target_col].shift(-lookahead) / df[target_col]) - 1
     
     # Drop NaNs created by shifting
     data = df.copy()
@@ -141,7 +141,7 @@ def __(CONFIG, X, y):
 
 @app.cell
 def __(mo):
-    mo.md("## 4. Modeling & Evaulation")
+    mo.md("## 4. Modeling & Evaluation")
     return
 
 

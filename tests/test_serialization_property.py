@@ -66,9 +66,9 @@ class TestSerializationProperties:
         loaded = load_parquet(path)
         assert_frame_equal_res(df, loaded)
 
-    @given(time_series_dataframe(), st.one_of(st.none(), st.text(min_size=1)), st.booleans())
+    @given(time_series_dataframe(), st.one_of(st.none(), st.text(min_size=1)), st.booleans(), st.integers(min_value=0, max_value=9999))
     @settings(max_examples=30, deadline=None)
-    def test_timeseries_data_roundtrip(self, features, target_name, as_dataframe):
+    def test_timeseries_data_roundtrip(self, features, target_name, as_dataframe, ts_seed):
         """Property: TimeSeriesData serialization round-trip consistency."""
         # Setup targets
         if as_dataframe:
@@ -95,7 +95,7 @@ class TestSerializationProperties:
             split_indices={"train": [0, 1], "test": [2]}
         )
         
-        path = os.path.join(self.test_dir, f"ts_data_{np.random.randint(10000)}")
+        path = os.path.join(self.test_dir, f"ts_data_{ts_seed}")
         save_timeseries_data(ts_data, path)
         loaded_ts_data = load_timeseries_data(path)
         

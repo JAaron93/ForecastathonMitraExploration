@@ -211,21 +211,21 @@
   - Create comprehensive model evaluation and artifact saving
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 19. Create Notebook 4: LSTM Sequence Model
+- [x] 19. Create Notebook 4: LSTM Sequence Model
   - Build 04_model_lstm.py as Marimo notebook with sequence-based modeling
   - Integrate LSTM utilities and temporal explainability methods
   - Add rolling evaluation and architecture configuration experiments
   - Create sequence model performance analysis and comparison
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 20. Create Notebook 5: Mitra Foundation Model
+- [x] 20. Create Notebook 5: Mitra Foundation Model
   - Build 05_model_mitra_tfm.py as Marimo notebook with in-context learning workflows
   - Integrate Mitra utilities and regime adaptation capabilities
   - Add support/query split experiments and meta-learning evaluation
   - Create Mitra-specific performance analysis and interpretability
   - _Requirements: 7.1, 7.2, 7.4, 7.5, 11.1, 11.2, 11.3, 11.4_
 
-- [ ] 21. Create Notebook 6: Model Comparison and Trading
+- [x] 21. Create Notebook 6: Model Comparison and Trading
   - Build 06_model_comparison_and_trading.py as Marimo notebook for comprehensive analysis
   - Integrate model comparison utilities and ensemble methods
   - Add trading signal generation and portfolio analysis

@@ -344,10 +344,9 @@ class MetricsCalculator:
                  prob_pos = y_proba if y_proba.ndim == 1 else y_proba[:, 1]
                  metrics["brier_score"] = float(brier_score_loss(y_true, prob_pos))
             else:
-                 # Multiclass - Brier score is just mean squared error of probabilities
-                 # But sklearn doesn't support it directly in brier_score_loss function for multiclass labels
-                 # We can calculate it manually: 1/N * sum((y_ij - p_ij)^2)
-                 pass
+                 # Multiclass - sklearn brier_score_loss doesn't support multiclass directly
+                 # Set to NaN for consistency
+                 metrics["brier_score"] = np.nan
         except ValueError:
             metrics["brier_score"] = np.nan
 

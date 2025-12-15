@@ -86,7 +86,8 @@ def __(CONFIG, LabelDiscretizer, df, pd):
     target_col = CONFIG["target_col"]
     
     # Calculate returns
-    future_return = df[target_col].pct_change(lookahead).shift(-lookahead)
+    # Forward return: (Price_{t+lookahead} - Price_t) / Price_t
+    future_return = df[target_col].shift(-lookahead) / df[target_col] - 1
     
     data = df.copy()
     data["future_return"] = future_return

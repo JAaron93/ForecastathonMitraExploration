@@ -367,6 +367,7 @@ class FeatureEngineer:
         self,
         df: pd.DataFrame,
         price_columns: Optional[List[str]] = None,
+        volume_columns: Optional[List[str]] = None,
         include_lags: bool = True,
         include_rolling: bool = True,
         include_calendar: bool = True,
@@ -377,7 +378,8 @@ class FeatureEngineer:
 
         Args:
             df: DataFrame with time series data
-            price_columns: Columns to use for feature engineering
+            price_columns: Columns to use for price-based features (returns)
+            volume_columns: Columns to use for volume-based features (no returns)
             include_lags: Whether to include lag features
             include_rolling: Whether to include rolling statistics
             include_calendar: Whether to include calendar features
@@ -390,15 +392,21 @@ class FeatureEngineer:
         
         if price_columns is None:
             price_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+            
+        if volume_columns is None:
+            volume_columns = []
+            
+        # Combine for operations that apply to both
+        all_numeric_columns = list(set(price_columns + volume_columns))
 
         if include_returns:
             result = self.calculate_returns(result, columns=price_columns)
         
         if include_lags:
-            result = self.create_lag_features(result, columns=price_columns)
+            result = self.create_lag_features(result, columns=all_numeric_columns)
         
         if include_rolling:
-            result = self.calculate_rolling_stats(result, columns=price_columns)
+            result = self.calculate_rolling_stats(result, columns=all_numeric_columns)
         
         if include_calendar and isinstance(df.index, pd.DatetimeIndex):
             result = self.create_calendar_features(result)

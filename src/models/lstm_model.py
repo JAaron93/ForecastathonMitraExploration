@@ -157,7 +157,6 @@ class LSTMModel(BaseModel):
             epochs=self.hyperparameters["epochs"],
             batch_size=self.hyperparameters["batch_size"],
             callbacks=[early_stopping],
-            verbose=0,
             **kwargs
         )
         

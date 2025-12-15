@@ -109,8 +109,6 @@ def __(DATA_CONFIG, DataLoader, Path):
         
     except Exception as e:
         print(f"Error loading data: {e}")
-        # Create dummy data if loading fails (for demonstration/testing without files)
-        # In production this should stop execution
         raise e
     return btc_df, btc_path, btc_schema, loader, macro_df, macro_path, macro_schema
 
@@ -127,17 +125,17 @@ def __(DATA_CONFIG, DataProfiler, btc_df):
     
     # Generate profile for raw BTC data
     # Using minimal=True for speed in this demo, set to False for full analysis
+    profile = profiler.generate_profile(btc_df.reset_index(), title="Raw BTC Data", minimal=True)
+
     btc_profile_path = profiler.save_report(
-        profiler.generate_profile(btc_df.reset_index(), title="Raw BTC Data", minimal=True),
+        profile,
         dataset_identifier="raw_btc"
     )
     
     print(f"Raw BTC profile saved to: {btc_profile_path}")
     
     # Check data quality
-    quality_summary = profiler.get_data_quality_summary(
-        profiler.generate_profile(btc_df.reset_index(), title="Raw BTC Data", minimal=True)
-    )
+    quality_summary = profiler.get_data_quality_summary(profile)
     
     print("Data Quality Summary:")
     print(quality_summary)
@@ -199,7 +197,8 @@ def __(DATA_CONFIG, FeatureEngineer, merged_df):
     # Generate features
     processed_df = engineer.engineer_all_features(
         merged_df,
-        price_columns=["close", "volume"], # specific columns to focus on
+        price_columns=["close"], # specific columns to focus on
+        volume_columns=["volume"], # separate volume for no-returns logic
         include_lags=True,
         include_rolling=True,
         include_calendar=True,
