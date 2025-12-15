@@ -3,6 +3,7 @@ Configuration management utilities.
 """
 
 import os
+import copy
 import yaml
 import json
 import logging
@@ -62,9 +63,7 @@ class ConfigManager:
         schema_path = self.schema_dir / schema_name
         
         if not schema_path.exists():
-             # Fallback: check if schema_name is just the name without path in schema_dir
-             if not schema_path.exists():
-                 raise FileNotFoundError(f"Schema file not found: {schema_path}")
+            raise FileNotFoundError(f"Schema file not found: {schema_path}")
 
         try:
             with open(schema_path, "r") as f:
@@ -93,7 +92,7 @@ class ConfigManager:
         Returns:
             Merged configuration
         """
-        merged = base.copy()
+        merged = copy.deepcopy(base)
         for key, value in override.items():
             if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
                 merged[key] = self.merge_configs(merged[key], value)

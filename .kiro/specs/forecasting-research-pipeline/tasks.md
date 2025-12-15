@@ -130,6 +130,10 @@
   - **Property 7: Ensemble and comparison consistency**
   - **Validates: Requirements 8.1, 8.2, 8.3**
 
+- [x] 15.1 Write property test for serialization
+  - **Property 12: Round-trip persistence consistency**
+  - **Validates: Requirements 8.3, 10.1, 12.2, 12.3**
+
 - [x] 11. Implement trading signal generation and portfolio utilities
   - Create trading signal conversion from model predictions
   - Implement position sizing algorithms and directional recommendations
@@ -175,16 +179,13 @@
   - **Property 11: Configuration flexibility and validation**
   - **Validates: Requirements 4.2, 4.5, 3.4, 10.4, 12.3**
 
-- [ ] 15. Implement serialization and data persistence layer
-  - Create consistent serialization utilities for all data types
-  - Implement model artifact serialization with metadata preservation
+- [x] 15. Create serialization and persistence layer
+  - Implement JSON/Pickle serialization for model artifacts
+  - Create Parquet serialization for time series data
+  - Build metadata handling for experiment tracking
   - Build cross-notebook data sharing utilities
   - Add data format validation and conversion utilities
-  - _Requirements: 1.4, 2.5, 3.3, 5.5, 6.5, 7.5, 10.1, 10.2, 10.3, 10.5_
-
-- [ ] 15.1 Write property test for serialization consistency
-  - **Property 1: Data serialization round-trip consistency**
-  - **Validates: Requirements 1.4, 2.5, 3.3, 5.5, 6.5, 7.5, 10.1, 10.2, 10.3, 10.5**
+  - _Requirements: 1.4, 2.5, 3.3, 5.5, 6.5, 7.5, 8.3, 10.1, 10.2, 10.3, 10.5, 12.2_
 
 - [ ] 16. Create Notebook 1: Data Preparation and Feature Engineering
   - Build 01_data_prep_feature_engineering.py as Marimo notebook with data loading, preprocessing, and feature engineering
