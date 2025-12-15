@@ -187,7 +187,7 @@
   - Add data format validation and conversion utilities
   - _Requirements: 1.4, 2.5, 3.3, 5.5, 6.5, 7.5, 8.3, 10.1, 10.2, 10.3, 10.5, 12.2_
 
-- [ ] 16. Create Notebook 1: Data Preparation and Feature Engineering
+- [x] 16. Create Notebook 1: Data Preparation and Feature Engineering
   - Build 01_data_prep_feature_engineering.py as Marimo notebook with data loading, preprocessing, and feature engineering
   - Integrate all data processing utilities and feature engineering modules
   - Add comprehensive data quality reporting and visualization
@@ -197,14 +197,14 @@
   - Include data quality summary extraction and display in notebook
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 17. Create Notebook 2: Naive Bayes Baseline
+- [x] 17. Create Notebook 2: Naive Bayes Baseline
   - Build 02_baseline_naive_bayes.py as Marimo notebook for fast iteration experiments
   - Integrate baseline model utilities and experiment tracking
   - Add feature subset testing and label discretization experiments
   - Create baseline performance reporting and comparison tables
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 18. Create Notebook 3: XGBoost Model
+- [x] 18. Create Notebook 3: XGBoost Model
   - Build 03_model_xgboost.py as Marimo notebook with systematic hyperparameter optimization
   - Integrate XGBoost model utilities and SHAP explainability
   - Add time-series cross-validation and feature importance analysis

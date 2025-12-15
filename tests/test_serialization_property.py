@@ -66,12 +66,25 @@ class TestSerializationProperties:
         loaded = load_parquet(path)
         assert_frame_equal_res(df, loaded)
 
-    @given(time_series_dataframe())
-    @settings(max_examples=20, deadline=None)
-    def test_timeseries_data_roundtrip(self, features):
+    @given(time_series_dataframe(), st.one_of(st.none(), st.text(min_size=1)), st.booleans())
+    @settings(max_examples=30, deadline=None)
+    def test_timeseries_data_roundtrip(self, features, target_name, as_dataframe):
         """Property: TimeSeriesData serialization round-trip consistency."""
-        # Setup coherent TimeSeriesData
-        targets = pd.Series(np.random.randn(len(features)), index=features.index, name="target")
+        # Setup targets
+        if as_dataframe:
+            # Create a multi-column DataFrame target
+            targets = pd.DataFrame({
+                "t1": np.random.randn(len(features)),
+                "t2": np.random.randn(len(features))
+            }, index=features.index)
+        else:
+            # Create a Series target with potentially custom name
+            targets = pd.Series(
+                np.random.randn(len(features)), 
+                index=features.index, 
+                name=target_name
+            )
+            
         timestamp = features.index
         
         ts_data = TimeSeriesData(
@@ -82,16 +95,25 @@ class TestSerializationProperties:
             split_indices={"train": [0, 1], "test": [2]}
         )
         
-        path = os.path.join(self.test_dir, "ts_data")
+        path = os.path.join(self.test_dir, f"ts_data_{np.random.randint(10000)}")
         save_timeseries_data(ts_data, path)
         loaded_ts_data = load_timeseries_data(path)
         
         # Verify components
         pd.testing.assert_index_equal(ts_data.timestamp, loaded_ts_data.timestamp, check_names=False)
         assert_frame_equal_res(ts_data.features, loaded_ts_data.features)
-        pd.testing.assert_series_equal(ts_data.targets, loaded_ts_data.targets)
+        
+        if as_dataframe:
+            assert isinstance(loaded_ts_data.targets, pd.DataFrame)
+            assert_frame_equal_res(ts_data.targets, loaded_ts_data.targets)
+        else:
+            assert isinstance(loaded_ts_data.targets, pd.Series)
+            pd.testing.assert_series_equal(ts_data.targets, loaded_ts_data.targets)
+            # Explicitly check name preservation
+            assert loaded_ts_data.targets.name == target_name
+                 
         assert ts_data.metadata == loaded_ts_data.metadata
         assert ts_data.split_indices == loaded_ts_data.split_indices
 
 if __name__ == "__main__":
-    unittest.main()
+    pytest.main([__file__])

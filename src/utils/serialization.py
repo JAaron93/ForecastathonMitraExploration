@@ -81,10 +81,22 @@ def save_timeseries_data(data: TimeSeriesData, path: Union[str, Path]) -> None:
     save_parquet(data.features, save_dir / "features.parquet")
     
     # Handle targets (Series or DataFrame)
+    target_meta = {"is_series": False, "name": None}
+    
     if isinstance(data.targets, pd.Series):
-        data.targets.to_frame(name="target").to_parquet(save_dir / "targets.parquet")
+        # Preserve original name (which can be None), but use safe string for Parquet column
+        original_name = data.targets.name
+        # JSON serializer handles None -> null. If name is complex object, use str()
+        # But for exact preservation, we assume it's JSON-compatible or None for now.
+        # If it's a number, JSON is fine.
+        target_meta = {"is_series": True, "name": original_name}
+        
+        target_col_name = str(original_name) if original_name is not None else "target"
+        data.targets.to_frame(name=target_col_name).to_parquet(save_dir / "targets.parquet")
     else:
         save_parquet(data.targets, save_dir / "targets.parquet")
+        
+    save_json(target_meta, save_dir / "target_meta.json")
         
     # Save timestamp
     pd.DataFrame({"timestamp": data.timestamp}).to_parquet(save_dir / "timestamp.parquet")
@@ -103,13 +115,31 @@ def load_timeseries_data(path: Union[str, Path]) -> TimeSeriesData:
     features = load_parquet(load_dir / "features.parquet")
     targets_df = load_parquet(load_dir / "targets.parquet")
     
-    # If standard name 'target' and single column, convert to Series? 
-    # For robust loading, if we saved a series as 'target', we'll get a DF with 'target' col.
-    # Let's verify if original was series or DF from metadata? 
-    # MVP: Return DataFrame if multiclass, Series if single 'target' column?
-    # Simple Heuristic: If 1 col named 'target', convert to series.
-    if len(targets_df.columns) == 1 and targets_df.columns[0] == "target":
-        targets = targets_df["target"]
+    # Load target metadata if exists (backward compatibility)
+    target_meta_path = load_dir / "target_meta.json"
+    if target_meta_path.exists():
+        target_meta = load_json(target_meta_path)
+    else:
+        # Fallback heuristic
+        target_meta = {"is_series": len(targets_df.columns) == 1 and targets_df.columns[0] == "target", 
+                       "name": "target"}
+
+    if target_meta.get("is_series"):
+        original_name = target_meta.get("name")
+        
+        # Determine likely column name in Parquet
+        # If original_name is None, we saved it as "target"
+        expected_col = str(original_name) if original_name is not None else "target"
+        
+        if expected_col in targets_df.columns:
+            targets = targets_df[expected_col]
+        elif "target" in targets_df.columns:
+             targets = targets_df["target"]
+        else:
+             # Fallback: take first column
+             targets = targets_df.iloc[:, 0]
+             
+        targets.name = original_name
     else:
         targets = targets_df
 
