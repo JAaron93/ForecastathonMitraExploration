@@ -42,7 +42,7 @@ class EnsembleModel(BaseModel):
         
         if self.weights is not None:
              if len(self.weights) != len(self.models):
-                 raise ValueError("Number of weights must match numberOf models")
+                 raise ValueError("Number of weights must match number of models")
              if not np.isclose(sum(self.weights), 1.0):
                  # Normalize weights if they don't sum to 1
                  total = sum(self.weights)

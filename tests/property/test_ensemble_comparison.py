@@ -155,3 +155,26 @@ def test_robustness_analysis():
     assert "bear" in results
     assert not results["bull"].empty
     assert "mse" in results["bull"].columns or "rmse" in results["bull"].columns
+
+def test_instantiate_model_factory():
+    """
+    Test _instantiate_model factory logic.
+    """
+    comparator = ModelComparator()
+    
+    # CASE 1: EnsembleModel should get models=[] automatically
+    meta_ensemble = {"model_type": "Ensemble", "hyperparameters": {"method": "voting"}}
+    model = comparator._instantiate_model(EnsembleModel, meta_ensemble)
+    assert isinstance(model, EnsembleModel)
+    assert model.models == []
+    assert model.method == "voting"
+    
+    # CASE 2: Model with required args should fail with clear message if args missing
+    # MockModel requires constant_pred
+    meta_mock = {"model_type": "Mock"}
+    
+    with pytest.raises(ValueError) as excinfo:
+        comparator._instantiate_model(MockModel, meta_mock)
+    
+    assert "Failed to instantiate MockModel" in str(excinfo.value)
+    assert "Ensure metadata contains all required constructor arguments" in str(excinfo.value)

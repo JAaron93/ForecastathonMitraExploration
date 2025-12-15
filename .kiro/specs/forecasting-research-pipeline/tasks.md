@@ -130,14 +130,14 @@
   - **Property 7: Ensemble and comparison consistency**
   - **Validates: Requirements 8.1, 8.2, 8.3**
 
-- [ ] 11. Implement trading signal generation and portfolio utilities
+- [x] 11. Implement trading signal generation and portfolio utilities
   - Create trading signal conversion from model predictions
   - Implement position sizing algorithms and directional recommendations
   - Build portfolio performance analysis and backtesting utilities
   - Create research dashboard with model recommendations
   - _Requirements: 8.4, 8.5_
 
-- [ ] 11.1 Write property test for trading signal generation
+- [x] 11.1 Write property test for trading signal generation
   - **Property 8: Trading signal generation correctness**
   - **Validates: Requirements 8.4, 8.5**
 

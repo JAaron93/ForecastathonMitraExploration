@@ -97,16 +97,79 @@ class ModelComparator:
                     logger.warning(f"Unknown model type {model_type} for {run_id}")
                     continue
                     
-                # Instantiate and load
-                model = model_cls()
-                model.load_model(artifact_path)
-                
-                self.loaded_models[run_id] = model
-                self.artifacts[run_id] = model.get_artifact()
-                logger.info(f"Loaded model {model_type} from {run_id}")
-                
+                # Instantiate with factory
+                try:
+                    model = self._instantiate_model(model_cls, meta)
+                    model.load_model(artifact_path)
+                    
+                    self.loaded_models[run_id] = model
+                    self.artifacts[run_id] = model.get_artifact()
+                    logger.info(f"Loaded model {model_type} from {run_id}")
+                except Exception as e:
+                    logger.error(f"Failed to load artifact for {run_id}: {e}")
+            
             except Exception as e:
                 logger.error(f"Failed to load artifact for {run_id}: {e}")
+
+    def _instantiate_model(self, model_cls: type, meta: Dict[str, Any]) -> BaseModel:
+        """
+        Instantiate a model class using metadata arguments.
+        
+        Args:
+            model_cls: Class of the model
+            meta: Metadata dictionary
+            
+        Returns:
+            Instantiated model
+            
+        Raises:
+            ValueError: If instantiation fails due to missing arguments
+        """
+        # Default args supported by BaseModel
+        kwargs = {
+            "model_id": meta.get("model_id"),
+            "hyperparameters": meta.get("hyperparameters", {})
+        }
+        
+        # Factory overrides for specific models
+        model_type = meta.get("model_type")
+        if model_type == "Ensemble":
+            # Ensemble requires 'models' list. 
+            # If we don't have it serialized, we provide empty list to allow loading.
+            if "models" not in kwargs:
+                kwargs["models"] = []
+                
+            # Also extract specific args from hyperparameters if present
+            hp = kwargs.get("hyperparameters", {})
+            if "method" in hp:
+                kwargs["method"] = hp["method"]
+            if "weights" in hp:
+                kwargs["weights"] = hp["weights"]
+                
+        # Try instantiation with kwargs
+        try:
+            return model_cls(**kwargs)
+        except TypeError as e:
+            # Check if it was an unexpected argument or missing argument
+            if "unexpected keyword argument" in str(e):
+                # Try fallback to no-arg
+                try:
+                    return model_cls()
+                except TypeError as e2:
+                     raise ValueError(
+                         f"Failed to instantiate {model_cls.__name__}: {str(e2)}. "
+                         "Ensure metadata contains all required constructor arguments."
+                     )
+            elif "missing" in str(e) and "argument" in str(e):
+                # Missing required arg
+                raise ValueError(
+                    f"Failed to instantiate {model_cls.__name__}: {str(e)}. "
+                    f"Provided args: {list(kwargs.keys())}. "
+                    "Ensure metadata contains all required constructor arguments."
+                )
+            else:
+                raise e
+
 
     def add_model(self, model: BaseModel, name: str):
         """
