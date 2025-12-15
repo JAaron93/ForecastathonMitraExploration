@@ -76,7 +76,7 @@
   - **Property 5: Model training and evaluation correctness (Naive Bayes component)**
   - **Validates: Requirements 4.1**
 
-- [ ] 6. Develop XGBoost model with hyperparameter optimization
+- [x] 6. Develop XGBoost model with hyperparameter optimization
   - Create XGBoostModel class with systematic hyperparameter tuning
   - Integrate Optuna for hyperparameter optimization with time-series CV
   - Implement feature importance analysis (gain, split, permutation)
@@ -84,7 +84,7 @@
   - Build model serialization and artifact management
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 6.1 Write property test for XGBoost training and evaluation
+- [x] 6.1 Write property test for XGBoost training and evaluation
   - **Property 5: Model training and evaluation correctness (XGBoost component)**
   - **Validates: Requirements 5.1, 5.2, 5.3**
 

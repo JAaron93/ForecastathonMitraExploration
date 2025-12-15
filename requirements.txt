@@ -17,6 +17,7 @@ torch>=2.0.0
 torchvision>=0.15.0
 
 # AutoML and Foundation Models
+optuna>=3.0.0
 autogluon>=1.4.0
 
 # Experiment Tracking
