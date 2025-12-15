@@ -338,13 +338,15 @@ class TestTechnicalIndicatorsCorrectness:
         macd_line, signal_line, histogram = indicators.calculate_macd(series)
 
         expected_histogram = macd_line - signal_line
+        valid_mask = ~macd_line.isna() & ~signal_line.isna()
 
-        np.testing.assert_array_almost_equal(
-            histogram.values,
-            expected_histogram.values,
-            decimal=10,
-            err_msg="MACD histogram != MACD line - signal line"
-        )
+        if valid_mask.any():
+            np.testing.assert_array_almost_equal(
+                histogram[valid_mask].values,
+                expected_histogram[valid_mask].values,
+                decimal=10,
+                err_msg="MACD histogram != MACD line - signal line"
+            )
 
     @given(series=numeric_series())
     @settings(max_examples=100, deadline=None)

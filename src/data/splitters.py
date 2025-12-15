@@ -189,12 +189,15 @@ class TimeSeriesSplitter:
         }
 
         if isinstance(df.index, pd.DatetimeIndex):
-            metadata["train_start"] = str(df.index[train_indices[0]])
-            metadata["train_end"] = str(df.index[train_indices[-1]])
-            metadata["val_start"] = str(df.index[val_indices[0]])
-            metadata["val_end"] = str(df.index[val_indices[-1]])
-            metadata["test_start"] = str(df.index[test_indices[0]])
-            metadata["test_end"] = str(df.index[test_indices[-1]])
+            if train_indices:
+                metadata["train_start"] = str(df.index[train_indices[0]])
+                metadata["train_end"] = str(df.index[train_indices[-1]])
+            if val_indices:
+                metadata["val_start"] = str(df.index[val_indices[0]])
+                metadata["val_end"] = str(df.index[val_indices[-1]])
+            if test_indices:
+                metadata["test_start"] = str(df.index[test_indices[0]])
+                metadata["test_end"] = str(df.index[test_indices[-1]])
 
         return SplitIndices(
             train_indices=train_indices,

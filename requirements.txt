@@ -29,7 +29,7 @@ shap>=0.42.0
 ydata-profiling>=4.6.0
 
 # Notebooks
-marimo>=0.1.0
+marimo>=0.18.4
 
 # Testing
 pytest>=7.4.0

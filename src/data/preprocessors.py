@@ -65,6 +65,10 @@ class Preprocessor:
         Returns:
             List of row indices containing outliers
         """
+        if method not in ["iqr", "zscore"]:
+            raise ValueError(f"Unknown method: {method}. Supported methods are: ['iqr', 'zscore']")
+
+
         if columns is None:
             columns = df.select_dtypes(include=[np.number]).columns.tolist()
 
@@ -177,9 +181,28 @@ class Preprocessor:
             return resampler.first()
         elif agg_method == "ohlc":
             # For OHLCV data, use appropriate aggregations
-            return resampler.agg({
-                col: "mean" for col in df.columns
-            })
+            agg_map = {
+                'open': 'first',
+                'high': 'max',
+                'low': 'min',
+                'close': 'last',
+                'volume': 'sum'
+            }
+            
+            # Build the actual aggregation dictionary based on what's in df
+            final_agg = {}
+            for col in df.columns:
+                # Check case-insensitive match for OHLC columns if standard names aren't guaranteed,
+                # but user specified keys 'open', 'high' etc. Let's stick to exact keys first 
+                # or maybe safer to handle them purely as requested. 
+                # The user prompt: "sets 'open'->'first', 'high'->'max'..." 
+                # so I will assume strict keys but will check if `col` is in `agg_map`.
+                if col in agg_map:
+                    final_agg[col] = agg_map[col]
+                elif pd.api.types.is_numeric_dtype(df[col]):
+                    final_agg[col] = "mean"
+            
+            return resampler.agg(final_agg)
         else:
             raise ValueError(f"Unknown aggregation method: {agg_method}")
 

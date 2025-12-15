@@ -177,6 +177,9 @@ class DataValidator:
         Returns:
             Tuple of (is_valid, list of issues)
         """
+        if len(df) == 0:
+            return True, issues  # or return False, ["DataFrame is empty"]
+
         issues: List[str] = []
 
         for col in df.columns:

@@ -175,6 +175,10 @@ class VolatilityCalculator:
         rs_var = (log_ho * log_hc + log_lo * log_lc).rolling(window=window).mean()
         
         # Yang-Zhang combination
+        if window < 2:
+            raise ValueError("window must be at least 2 for Yang-Zhang volatility")
+        
+        # Yang-Zhang combination
         k = 0.34 / (1.34 + (window + 1) / (window - 1))
         yz_var = overnight_var + k * open_close_var + (1 - k) * rs_var
         

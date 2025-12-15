@@ -16,8 +16,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/forecasting-research/pipeline",
-    packages=find_packages(where="."),
-    package_dir={"": "."},
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
@@ -44,7 +44,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "forecast-pipeline=src.cli:main",
+            "forecast-pipeline=cli:main",
         ],
     },
 )
