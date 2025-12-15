@@ -1,0 +1,52 @@
+# Core data processing
+numpy>=1.24.0
+pandas>=2.0.0
+pyarrow>=12.0.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+
+# Machine Learning
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+
+# Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# AutoML and Foundation Models
+autogluon>=1.4.0
+
+# Experiment Tracking
+mlflow>=2.8.0
+
+# Explainability
+shap>=0.42.0
+
+# Data Profiling
+ydata-profiling>=4.6.0
+
+# Notebooks
+marimo>=0.1.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+hypothesis>=6.82.0
+
+# Code Quality
+pre-commit>=3.4.0
+black>=23.9.0
+isort>=5.12.0
+flake8>=6.1.0
+mypy>=1.5.0
+
+# Configuration
+pyyaml>=6.0.0
+python-json-logger>=2.0.0
+
+# Utilities
+tqdm>=4.66.0
+joblib>=1.3.0

@@ -1,39 +1,47 @@
 # Implementation Plan
 
-- [ ] 1. Set up project structure and core infrastructure
+- [x] 1. Set up project structure and core infrastructure
   - Create directory structure for notebooks, src modules, config, data, models, experiments, logs, and tests
   - Set up Python package structure with __init__.py files and setup.py
-  - Create requirements.txt with all dependencies (numpy, pandas, matplotlib, scikit-learn, xgboost, pytorch, autogluon, hypothesis, mlflow, shap, marimo)
+  - Create requirements.txt with all dependencies (numpy, pandas, matplotlib, scikit-learn, xgboost, pytorch, autogluon, hypothesis, mlflow, shap, marimo, ydata-profiling)
   - Initialize git repository with appropriate .gitignore for Python ML projects
   - _Requirements: 9.1, 9.2_
 
-- [ ] 1.1 Set up testing framework and CI configuration
+- [x] 1.1 Set up testing framework and CI configuration
   - Configure pytest with coverage reporting and hypothesis integration
   - Set up pre-commit hooks for code quality checks
   - Create GitHub Actions or similar CI pipeline for automated testing
   - _Requirements: 9.6, 9.7, 9.8_
 
-- [ ] 2. Implement core data processing utilities
-  - Create DataLoader class with CSV/Parquet loading and schema validation
+- [x] 2. Implement core data processing utilities
+  - Create DataLoader class with Parquet loading and schema validation
   - Implement Preprocessor class with missing value handling, outlier detection, and time series resampling
   - Build data validation utilities with PSI calculation and quality metrics logging
   - _Requirements: 1.1, 1.2, 1.3, 1.5_
 
-- [ ] 2.1 Write property test for data loading and validation
+- [x] 2.1 Implement data profiling utilities with ydata-profiling
+  - Create DataProfiler class with profile generation and report saving
+  - Implement time series specific profiling configuration
+  - Add profile comparison utilities for before/after preprocessing analysis
+  - Build data quality summary extraction from profile reports
+  - Create reports directory structure at data/processed/reports/
+  - _Requirements: 1.6, 1.7_
+
+- [x] 2.2 Write property test for data loading and validation
   - **Property 4: Data validation and preprocessing consistency**
   - **Validates: Requirements 1.1, 1.2, 1.3, 1.5**
 
-- [ ] 2.2 Implement time series alignment and splitting utilities
+- [x] 2.3 Implement time series alignment and splitting utilities
   - Create functions for aligning multiple time series to consistent time grid
   - Implement time-series aware train/validation/test splitting with rolling/expanding windows
   - Build utilities to save and load split indices with metadata
   - _Requirements: 1.2, 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 2.3 Write property test for time series operations
+- [x] 2.4 Write property test for time series operations
   - **Property 2: Time series temporal ordering preservation**
   - **Validates: Requirements 3.1, 3.2, 6.1, 6.3**
 
-- [ ] 3. Build comprehensive feature engineering module
+- [x] 3. Build comprehensive feature engineering module
   - Implement lag feature generation with configurable periods
   - Create rolling statistics calculator (mean, std, min, max, quantiles)
   - Build technical indicators module (RSI, MACD, Bollinger Bands, etc.)
@@ -42,7 +50,7 @@
   - Add cross-asset correlation and spread calculators
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 3.1 Write property test for feature engineering correctness
+- [x] 3.1 Write property test for feature engineering correctness
   - **Property 3: Feature engineering mathematical correctness**
   - **Validates: Requirements 2.1, 2.2, 2.3, 2.4**
 
@@ -184,7 +192,10 @@
   - Integrate all data processing utilities and feature engineering modules
   - Add comprehensive data quality reporting and visualization
   - Implement configurable preprocessing pipelines
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5_
+  - Generate ydata-profiling reports for raw data exploration with interactive HTML output
+  - Add profile comparison between raw and processed datasets to visualize preprocessing impact
+  - Include data quality summary extraction and display in notebook
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5_
 
 - [ ] 17. Create Notebook 2: Naive Bayes Baseline
   - Build 02_baseline_naive_bayes.py as Marimo notebook for fast iteration experiments

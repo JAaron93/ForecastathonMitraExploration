@@ -91,6 +91,7 @@ forecasting-research-pipeline/
 ├── data/
 │   ├── raw/
 │   ├── processed/
+│   │   └── reports/           # Profile reports from ydata-profiling
 │   └── external/
 ├── models/
 │   ├── naive_bayes/
@@ -120,8 +121,7 @@ forecasting-research-pipeline/
 **DataLoader Interface**
 ```python
 class DataLoader:
-    def load_csv(self, path: str, schema: Dict) -> pd.DataFrame
-    def load_parquet(self, path: str) -> pd.DataFrame
+    def load_parquet(self, path: str, schema: Dict) -> pd.DataFrame
     def validate_schema(self, df: pd.DataFrame, schema: Dict) -> ValidationResult
 ```
 
@@ -132,6 +132,18 @@ class Preprocessor:
     def detect_outliers(self, df: pd.DataFrame, method: str) -> List[int]
     def resample_timeseries(self, df: pd.DataFrame, freq: str) -> pd.DataFrame
     def align_timeseries(self, dfs: List[pd.DataFrame]) -> pd.DataFrame
+```
+
+**DataProfiler Interface**
+```python
+class DataProfiler:
+    def generate_profile(self, df: pd.DataFrame, title: str, 
+                        minimal: bool = False, 
+                        time_series_config: Optional[Dict] = None) -> ProfileReport
+    def save_report(self, report: ProfileReport, output_path: str) -> str
+    def get_data_quality_summary(self, report: ProfileReport) -> Dict[str, Any]
+    def compare_profiles(self, report1: ProfileReport, 
+                        report2: ProfileReport) -> ProfileReport
 ```
 
 ### Feature Engineering Layer
@@ -248,7 +260,7 @@ class TradingSignal:
 ```yaml
 data_sources:
   btc_price:
-    path: "data/raw/btc_ohlcv.csv"
+    path: "data/raw/btc_ohlcv.parquet"
     schema:
       timestamp: "datetime64[ns]"
       open: "float64"
@@ -264,6 +276,18 @@ preprocessing:
   missing_value_strategy: "forward_fill"
   outlier_detection_method: "iqr"
   outlier_treatment: "winsorize"
+
+profiling:
+  enabled: true
+  minimal_mode: false  # Set to true for large datasets (>100k rows)
+  output_dir: "data/processed/reports"
+  time_series_mode: true  # Enable time series specific analysis
+  correlations:
+    pearson: true
+    spearman: true
+    auto: true  # Auto-correlation for time series
+  interactions:
+    continuous: true  # Scatter plots for continuous variables
   
 feature_engineering:
   lag_periods: [1, 2, 3, 5, 10, 20]
@@ -298,11 +322,17 @@ lstm:
     learning_rate: 0.001
     
 mitra:
-  autogluon_config:
-    time_limit: 300
-    presets: "best_quality"
-  support_set_size: 100
-  fine_tune_steps: 10
+  # AutoGluon TabularPredictor.fit() parameters
+  fit_params:
+    time_limit: 300  # passed to predictor.fit(time_limit=300)
+    presets: "high_quality"  # enables Mitra; alternatives: "medium_quality", "best_quality"
+  # Mitra-specific hyperparameters (passed via hyperparameters={'MITRA': {...}})
+  mitra_hyperparameters:
+    fine_tune: true
+    fine_tune_steps: 10
+  # Custom regime adaptation settings (application-specific, not AutoGluon params)
+  regime_adaptation:
+    recent_examples_count: 100  # number of recent examples for support set construction
 ```
 ## Correctness Properties
 
@@ -409,7 +439,7 @@ Based on the prework analysis, the following correctness properties have been id
 The system will implement comprehensive unit tests focusing on:
 
 **Data Processing Components**
-- Test data loaders with various file formats and schemas
+- Test data loaders with Parquet files and various schemas
 - Validate preprocessing functions with edge cases (empty data, single rows, extreme values)
 - Test feature engineering functions with known mathematical properties
 

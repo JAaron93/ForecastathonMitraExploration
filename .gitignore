@@ -167,3 +167,53 @@ cython_debug/
 
 # macOS
 .DS_Store
+
+# ML/Data Science specific
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.model
+*.ckpt
+*.pt
+*.pth
+
+# Data files (keep .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/external/*
+!data/external/.gitkeep
+
+# Model artifacts (keep .gitkeep)
+models/naive_bayes/*
+!models/naive_bayes/.gitkeep
+models/xgboost/*
+!models/xgboost/.gitkeep
+models/lstm/*
+!models/lstm/.gitkeep
+models/mitra/*
+!models/mitra/.gitkeep
+
+# MLflow
+mlruns/
+experiments/mlflow_runs/*
+!experiments/mlflow_runs/.gitkeep
+
+# Logs (keep .gitkeep)
+logs/data_validation/*
+!logs/data_validation/.gitkeep
+logs/model_training/*
+!logs/model_training/.gitkeep
+logs/pipeline_state/*
+!logs/pipeline_state/.gitkeep
+logs/errors/*
+!logs/errors/.gitkeep
+*.log
+
+# Test reports
+tests/reports/*
+!tests/reports/.gitkeep
+tests/integration_reports/

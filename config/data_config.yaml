@@ -1,0 +1,24 @@
+# Data configuration for forecasting pipeline
+data_sources:
+  btc_price:
+    path: "data/raw/btc_ohlcv.parquet"
+    schema:
+      timestamp: "datetime64[ns]"
+      open: "float64"
+      high: "float64"
+      low: "float64"
+      close: "float64"
+      volume: "float64"
+  macro_indicators:
+    path: "data/raw/macro_data.parquet"
+    resample_freq: "1D"
+
+preprocessing:
+  missing_value_strategy: "forward_fill"
+  outlier_detection_method: "iqr"
+  outlier_treatment: "winsorize"
+
+feature_engineering:
+  lag_periods: [1, 2, 3, 5, 10, 20]
+  rolling_windows: [5, 10, 20, 50]
+  technical_indicators: ["rsi", "macd", "bollinger_bands"]
