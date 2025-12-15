@@ -54,14 +54,14 @@
   - **Property 3: Feature engineering mathematical correctness**
   - **Validates: Requirements 2.1, 2.2, 2.3, 2.4**
 
-- [ ] 4. Create base model interface and evaluation framework
+- [x] 4. Create base model interface and evaluation framework
   - Implement BaseModel abstract class with fit/predict/save/load methods
   - Create MetricsCalculator with classification, regression, and trading metrics
   - Build calibration analysis utilities and plotting functions
   - Implement experiment tracking integration with MLflow
   - _Requirements: 4.3, 5.2, 13.1_
 
-- [ ] 4.1 Write property test for model evaluation metrics
+- [x] 4.1 Write property test for model evaluation metrics
   - **Property 5: Model training and evaluation correctness (metrics component)**
   - **Validates: Requirements 4.3, 5.2**
 
