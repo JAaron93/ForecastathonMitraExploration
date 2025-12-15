@@ -1,7 +1,7 @@
 """Experiment tracking integration with MLflow."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import json
@@ -77,6 +77,7 @@ class ExperimentTracker:
         experiment_name: str,
         tracking_uri: Optional[str] = None,
         artifact_location: Optional[str] = None,
+        enable_monitoring: bool = True,
     ):
         """
         Initialize ExperimentTracker.
@@ -85,12 +86,23 @@ class ExperimentTracker:
             experiment_name: Name of the experiment
             tracking_uri: MLflow tracking URI (optional)
             artifact_location: Path for storing artifacts
+            enable_monitoring: Whether to enable background system monitoring
         """
         self.experiment_name = experiment_name
         self.tracking_uri = tracking_uri or "experiments/mlflow_runs"
         self.artifact_location = artifact_location or "experiments/artifacts"
         self._current_run: Optional[ExperimentRun] = None
         self._mlflow_run = None
+        
+        # Monitoring
+        self.enable_monitoring = enable_monitoring
+        if self.enable_monitoring:
+            from .monitoring import SystemMonitor, AlertManager, AlertConfig
+            self._monitor = SystemMonitor(interval_seconds=10.0)
+            self._alert_manager = self._monitor._alert_manager
+        else:
+            self._monitor = None
+            self._alert_manager = None
         
         # Initialize MLflow if available
         if MLFLOW_AVAILABLE:
@@ -109,6 +121,20 @@ class ExperimentTracker:
             # Create local tracking directory
             Path(self.tracking_uri).mkdir(parents=True, exist_ok=True)
             Path(self.artifact_location).mkdir(parents=True, exist_ok=True)
+
+    def add_alert(self, metric_name: str, threshold: float, operator: str = '>') -> None:
+        """Add a performance alert."""
+        if self._alert_manager:
+            from .monitoring import AlertConfig
+            self._alert_manager.add_alert(
+                f"{metric_name}_alert",
+                AlertConfig(
+                    metric_name=metric_name,
+                    threshold=threshold,
+                    operator=operator,
+                    message_template=f"Performance alert: {{metric}} {{value:.4f}} {operator} {{threshold}}"
+                )
+            )
 
     def start_run(
         self,
@@ -143,6 +169,18 @@ class ExperimentTracker:
             tags=tags,
             status="running",
         )
+        
+        # Start monitoring
+        if self._monitor:
+            def monitor_callback(usage):
+                # Log system metrics
+                self.log_metrics({
+                    "system_cpu_percent": usage.cpu_percent,
+                    "system_memory_percent": usage.memory_percent,
+                    "system_memory_gb": usage.memory_used_gb
+                })
+                
+            self._monitor.start(callback=monitor_callback)
 
         logger.info(f"Started run {run_id} for experiment {self.experiment_name}")
         return self._current_run
@@ -157,6 +195,19 @@ class ExperimentTracker:
         if self._current_run is None:
             logger.warning("No active run to end")
             return
+
+        # Stop monitoring
+        if self._monitor:
+            self._monitor.stop()
+            # Log max resource usage
+            history = self._monitor.get_history()
+            if history:
+                max_cpu = max(h.cpu_percent for h in history)
+                max_mem = max(h.memory_percent for h in history)
+                self.log_metrics({
+                    "max_cpu_percent": max_cpu,
+                    "max_memory_percent": max_mem
+                })
 
         self._current_run.status = status
         self._current_run.end_time = datetime.now()
@@ -212,6 +263,11 @@ class ExperimentTracker:
             raise RuntimeError("No active run. Call start_run() first.")
 
         self._current_run.metrics.update(metrics)
+        
+        # Check alerts
+        if self._alert_manager:
+            for k, v in metrics.items():
+                self._alert_manager.check_metric(k, v)
 
         if MLFLOW_AVAILABLE:
             mlflow.log_metrics(metrics, step=step)
@@ -393,6 +449,51 @@ class ExperimentTracker:
                     break
 
         return runs
+
+    def cleanup_experiments(self, older_than_days: int = 90) -> int:
+        """
+        Clean up old experiment runs.
+        
+        Args:
+            older_than_days: Delete runs older than this many days
+            
+        Returns:
+            Number of deleted runs
+        """
+        cutoff_date = datetime.now() - timedelta(days=older_than_days)
+        deleted_count = 0
+        
+        if MLFLOW_AVAILABLE and self._experiment_id:
+            client = MlflowClient()
+            runs = self.list_runs(max_results=1000)
+            for run in runs:
+                if run.start_time < cutoff_date:
+                    try:
+                        client.delete_run(run.run_id)
+                        deleted_count += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to delete run {run.run_id}: {e}")
+        else:
+            # Local cleanup
+            tracking_dir = Path(self.tracking_uri)
+            for run_file in tracking_dir.glob("*.json"):
+                try:
+                    with open(run_file, "r") as f:
+                        run_data = json.load(f)
+                    start_time = datetime.fromisoformat(run_data["start_time"])
+                    if start_time < cutoff_date:
+                        run_file.unlink()
+                        # Clean up artifacts if local
+                        artifact_dir = Path(self.artifact_location) / run_data["run_id"]
+                        if artifact_dir.exists():
+                            import shutil
+                            shutil.rmtree(artifact_dir)
+                        deleted_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup local run {run_file}: {e}")
+                    
+        logger.info(f"Cleaned up {deleted_count} experiments older than {older_than_days} days")
+        return deleted_count
 
     def _save_run_locally(self) -> None:
         """Save current run to local file."""
