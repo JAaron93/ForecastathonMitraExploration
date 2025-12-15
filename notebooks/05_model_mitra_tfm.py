@@ -55,11 +55,29 @@ def __(Path, project_root, shutil):
         "query_window": 7,      # Days to predict before re-adapting (Weekly adaptation)
         "test_size": 0.2,
         "n_adaptations": 5,     # Limit number of loops for demo speed
+        "force_cleanup": False, # Safer default
     }
     
-    # Clean previous run
+    # Safer cleanup
     if CONFIG["models_base_dir"].exists():
-        shutil.rmtree(CONFIG["models_base_dir"])
+        if CONFIG.get("force_cleanup", False):
+            try:
+                shutil.rmtree(CONFIG["models_base_dir"])
+                print(f"Removed existing directory: {CONFIG['models_base_dir']}")
+            except OSError as e:
+                print(f"Error: {CONFIG['models_base_dir']} : {e.strerror}")
+                raise
+        else:
+            # Backup instead of delete if cleanup not forced
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = CONFIG["models_base_dir"].with_name(f"{CONFIG['models_base_dir'].name}_backup_{timestamp}")
+            try:
+                shutil.move(str(CONFIG["models_base_dir"]), str(backup_path))
+                print(f"Moved existing directory to backup: {backup_path}")
+            except OSError as e:
+                print(f"Error moving to backup: {e.strerror}")
+                raise
+            
     CONFIG["models_base_dir"].mkdir(parents=True, exist_ok=True)
     
     return CONFIG,
@@ -210,7 +228,7 @@ def __(mo):
 
 
 @app.cell
-def __(MetricsCalculator, all_preds, all_targets, plt):
+def __(MetricsCalculator, all_preds, all_targets, np, plt):
     if not all_preds:
         print("No predictions generated.")
     else:

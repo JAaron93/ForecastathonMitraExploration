@@ -97,9 +97,22 @@ def __(CONFIG, StandardScaler, df, np, pd):
     
     # Calculate Returns for Evaluation (Actual Buy & Hold)
     # Return at t is (Price_{t+1} / Price_t) - 1. This is what we traded on at T to realize at T+1.
-    data["actual_return"] = (data[target_col].shift(-1) / data[target_col]) - 1
+    # Safe calculation specifically guarding against zero denominator
+    price_t = data[target_col]
+    price_t_plus_1 = data[target_col].shift(-1)
     
-    # Dropna mainly involves the last row
+    # Use np.where to handle division by zero
+    # If price_t is 0, set return to NaN
+    data["actual_return"] = np.where(
+        price_t != 0,
+        (price_t_plus_1 / price_t) - 1,
+        np.nan
+    )
+    
+    # Also replace potential infs with NaN (if price_t was very close to 0 but not 0, or other overflow)
+    data["actual_return"] = data["actual_return"].replace([np.inf, -np.inf], np.nan)
+    
+    # Dropna mainly involves the last row and any invalid return rows
     data = data.dropna()
     
     # Test Split
@@ -276,11 +289,14 @@ def __(CONFIG, MetricsCalculator, np, pd, plt, signals_df, y_test_returns):
     bnh_equity = (1 + y_test_returns).cumprod()
     plt.plot(bnh_equity, label="Buy & Hold", color="black", linestyle="--", linewidth=1.5)
     
-    results.append({
-        "Model": "Buy & Hold",
-        "Total Return": bnh_equity.iloc[-1] - 1,
-        "Sharpe": calculator.calculate_trading_metrics(y_test_returns, np.ones(len(y_test_returns)))["sharpe_ratio"]
-    })
+    # Buy & Hold Metrics
+    bnh_metrics = calculator.calculate_trading_metrics(
+        y_test_returns.values, 
+        np.ones(len(y_test_returns)),
+        risk_free_rate=CONFIG["risk_free_rate"]
+    )
+    bnh_metrics["Model"] = "Buy & Hold"
+    results.append(bnh_metrics)
     
     for model_name in signals_df.columns:
         signals = signals_df[model_name]
@@ -301,22 +317,35 @@ def __(CONFIG, MetricsCalculator, np, pd, plt, signals_df, y_test_returns):
         plt.plot(equity_curve, label=model_name)
         
         metrics["Model"] = model_name
-        results.append(metrics)
-        
-    plt.title("Cumulative Returns Strategy Comparison")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
     plt.ylabel("Portfolio Value (Start=1.0)")
     plt.show()
     
-    # Results Table
-    results_df = pd.DataFrame(results).set_index("Model")
+    # Normalize Results Keys (Handle variations like "Total Return" vs "total_return")
     cols_to_show = ["total_return", "sharpe_ratio", "max_drawdown", "win_rate", "profit_factor"]
+    normalized_results = []
+    
+    for res in results:
+        norm_res = {}
+        for k, v in res.items():
+            # Normalize key: lowercase and replace space with underscore
+            norm_k = k.lower().replace(" ", "_")
+            norm_res[norm_k] = v
+            
+        # Ensure all required columns exist
+        for col in cols_to_show:
+            if col not in norm_res:
+                norm_res[col] = np.nan
+        
+        normalized_results.append(norm_res)
+    
+    # Results Table
+    results_df = pd.DataFrame(normalized_results).set_index("model")
+    
     # Handle B&H which might miss some keys if calculated differently
     print("\nPerformance Summary:")
     print(results_df[cols_to_show])
     return (bnh_equity, calculator, cols_to_show, equity_curve, metrics, model_name, 
-            results, results_df, signals, strat_returns)
+            normalized_results, results, results_df, signals, strat_returns)
 
 
 if __name__ == "__main__":
