@@ -88,7 +88,7 @@
   - **Property 5: Model training and evaluation correctness (XGBoost component)**
   - **Validates: Requirements 5.1, 5.2, 5.3**
 
-- [ ] 7. Build LSTM sequence model implementation
+- [x] 7. Build LSTM sequence model implementation
   - Create LSTMModel class with configurable architecture (layers, hidden size, dropout)
   - Implement sliding window sequence generation for time series
   - Add PyTorch/Keras training loop with early stopping and checkpointing
@@ -96,11 +96,11 @@
   - Implement feature ablation and temporal importance analysis
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 7.1 Write property test for LSTM sequence generation
+- [x] 7.1 Write property test for LSTM sequence generation
   - **Property 2: Time series temporal ordering preservation (LSTM component)**
   - **Validates: Requirements 6.1, 6.3**
 
-- [ ] 7.2 Write property test for LSTM model training
+- [x] 7.2 Write property test for LSTM model training
   - **Property 5: Model training and evaluation correctness (LSTM component)**
   - **Validates: Requirements 6.2**
 
