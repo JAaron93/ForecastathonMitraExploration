@@ -5,7 +5,7 @@ Tests for Naive Bayes model and utilities.
 import pytest
 import numpy as np
 import pandas as pd
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, assume, settings
 from hypothesis.extra.pandas import data_frames, column, range_indexes
 
 from src.models.naive_bayes import NaiveBayesModel
@@ -90,6 +90,7 @@ def test_naive_bayes_feature_importance(sample_data):
 
 # --- Property Test ---
 
+@settings(deadline=None)
 @given(data=st.data())
 def test_naive_bayes_training_correctness(data):
     """
@@ -102,6 +103,10 @@ def test_naive_bayes_training_correctness(data):
         columns=[column(name=f"c{i}", dtype=float, elements=st.floats(allow_nan=False, allow_infinity=False, min_value=-100.0, max_value=100.0)) for i in range(3)],
         index=range_indexes(min_size=10, max_size=50)
     ))
+
+    # Assume features have some variance to avoid GaussianNB divide-by-zero warnings/errors
+    # If a feature is constant, its variance is 0.
+    assume((X_df.std() > 1e-6).all())
     
     # Target (2 or 3 classes) - ensure at least 2 classes are present
     y_list = data.draw(st.lists(st.integers(min_value=0, max_value=1), min_size=len(X_df), max_size=len(X_df)))

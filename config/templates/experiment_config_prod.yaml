@@ -1,0 +1,16 @@
+# Experiment configuration - PROD
+experiment:
+  name: "forecasting_research_prod"
+  tracking_uri: "experiments/mlflow_runs"
+  artifact_location: "models/"
+
+evaluation:
+  metrics:
+    classification: ["accuracy", "precision", "recall", "f1", "brier_score", "log_loss"]
+    regression: ["mse", "rmse", "mae", "r2"]
+    trading: ["sharpe_ratio", "max_drawdown", "hit_rate"]
+
+cross_validation:
+  method: "time_series_split"
+  n_splits: 5
+  gap: 0

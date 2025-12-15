@@ -99,10 +99,12 @@ class MitraModel(BaseModel):
         # Configure for Mitra (Using GBM as proxy for demo/robustness if custom model missing)
         # 'MITRA' key would be used if custom model installed, falling back to 'GBM' for standard AG behavior
         # fine_tune=False means we use zero-shot/ICL mode basically.
+        # Configure for Mitra
+        # We pass the MITRA key with fine_tune parameter based on our config
         ag_hyperparams = {
-            "GBM": {},
-            "KNN": {}, 
-            "LR": {}
+            "MITRA": {
+                "fine_tune": self.hyperparameters.get("fine_tune", False)
+            }
         }
         
         time_limit = self.hyperparameters.get("time_limit")

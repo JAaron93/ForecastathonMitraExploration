@@ -1,0 +1,34 @@
+# Model configuration for forecasting pipeline - DEV (Fast Iteration)
+naive_bayes:
+  discretization_bins: 5
+  smoothing_alpha: 1.0
+
+xgboost:
+  hyperparameter_tuning:
+    method: "optuna"
+    n_trials: 2
+    cv_folds: 2
+  default_params:
+    max_depth: 3
+    learning_rate: 0.1
+    n_estimators: 10
+
+lstm:
+  architecture:
+    hidden_size: 32
+    num_layers: 1
+    dropout: 0.0
+  training:
+    batch_size: 64
+    epochs: 2
+    learning_rate: 0.01
+
+mitra:
+  fit_params:
+    time_limit: 60
+    presets: "medium_quality"
+  mitra_hyperparameters:
+    fine_tune: false
+    fine_tune_steps: 1
+  regime_adaptation:
+    recent_examples_count: 50
