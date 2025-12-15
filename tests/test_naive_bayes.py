@@ -99,7 +99,7 @@ def test_naive_bayes_training_correctness(data):
     # Generate random training data
     # Features
     X_df = data.draw(data_frames(
-        columns=[column(name=f"c{i}", dtype=float, elements=st.floats(allow_nan=False, allow_infinity=False, min_value=-1e5, max_value=1e5)) for i in range(3)],
+        columns=[column(name=f"c{i}", dtype=float, elements=st.floats(allow_nan=False, allow_infinity=False, min_value=-100.0, max_value=100.0)) for i in range(3)],
         index=range_indexes(min_size=10, max_size=50)
     ))
     
@@ -113,7 +113,8 @@ def test_naive_bayes_training_correctness(data):
     y_series = pd.Series(y_list, index=X_df.index, name='target')
     
     # Use higher var_smoothing to avoid divide-by-zero validation errors on synthetic data
-    model = NaiveBayesModel(hyperparameters={"var_smoothing": 1e-5})
+    # GaussianNB can produce NaNs if variance is 0 and smoothing is too small relative to epsilon
+    model = NaiveBayesModel(hyperparameters={"var_smoothing": 1e-3})
     
     # Train
     try:

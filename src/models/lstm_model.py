@@ -13,6 +13,11 @@ import pandas as pd
 import keras
 from keras import layers, callbacks
 import json
+
+from ..models.base_model import BaseModel, logger
+
+class LSTMModel(BaseModel):
+    """
     LSTM model for time-series forecasting using Keras (JAX backend).
     """
     
@@ -197,10 +202,6 @@ import json
         if not self.is_fitted:
              raise ValueError("Cannot save unfitted model")
              
-        save_dir = os.path.dirname(path) if os.path.isfile(path) else path
-        if not os.path.exists(save_dir) and save_dir:
-            os.makedirs(save_dir)
-             
         from pathlib import Path
         save_dir = Path(path)
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -216,6 +217,10 @@ import json
         artifact = self.get_artifact()
         # We don't want to serialize the actual keras object in the artifact dict
         # The artifact.to_dict() already excludes model_object.
+        
+        # Save Keras model
+        model_path = save_dir / "model.keras"
+        self.model_object.save(model_path)
         
         with open(metadata_path, "w") as f:
             json.dump(artifact.to_dict(), f, indent=2)

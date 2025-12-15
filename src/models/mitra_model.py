@@ -83,6 +83,9 @@ class MitraModel(BaseModel):
         # We perform a fresh fit every time fit() is called as AG Predictors aren't easily re-trainable 
         # without loading existing.
         # We use a temporary path or model_id based path.
+        if self.model_id is None:
+            import uuid
+            self.model_id = str(uuid.uuid4())[:8]
         path = f"autogluon_models/{self.model_id}"
         
         self.predictor = TabularPredictor(
@@ -191,10 +194,10 @@ class MitraModel(BaseModel):
     def save_model(self, path: str) -> None:
         """
         AutoGluon models are directories. We can move/copy the predictor directory.
+        """
         if not self.is_fitted:
             raise ValueError("Cannot save unfitted model")
-             raise ValueError("Cannot save unfitted model")
-             
+
         save_dir = Path(path)
         # Predictor is already saved at self.predictor.path
         # We need to move/copy it to `path` or ensure `path` points to it.
@@ -246,5 +249,4 @@ class MitraModel(BaseModel):
         self.feature_names = metadata.get("feature_names", [])
         self.training_metrics = metadata.get("training_metrics", {})
         self.is_fitted = True
-        return self
         return self
