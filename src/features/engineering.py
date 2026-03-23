@@ -4,7 +4,7 @@ Provides lag features, rolling statistics, calendar features, and cross-asset
 calculations for financial time series forecasting.
 """
 
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 import pandas as pd
 import numpy as np
 import logging
@@ -20,6 +20,7 @@ class FeatureDefinitions:
     rolling_features: List[str]
     calendar_features: List[str]
     cross_asset_features: List[str]
+    order_book_features: List[str]
     metadata: Dict[str, Any]
 
     def to_dict(self) -> Dict[str, Any]:
@@ -29,6 +30,7 @@ class FeatureDefinitions:
             "rolling_features": self.rolling_features,
             "calendar_features": self.calendar_features,
             "cross_asset_features": self.cross_asset_features,
+            "order_book_features": self.order_book_features,
             "metadata": self.metadata,
         }
 
@@ -316,6 +318,63 @@ class FeatureEngineer:
         logger.info(f"Created cross-asset features for {len(asset_names)} assets")
         return result
 
+    def calculate_order_book_features(
+        self,
+        df: pd.DataFrame,
+        bid_price_col: str = "bid_price",
+        ask_price_col: str = "ask_price",
+        bid_size_col: str = "bid_size",
+        ask_size_col: str = "ask_size"
+    ) -> pd.DataFrame:
+        """
+        Calculate basic order book spread and WAP features.
+
+        Args:
+            df: DataFrame containing order book columns
+            bid_price_col: Name of bid price column
+            ask_price_col: Name of ask price column
+            bid_size_col: Name of bid size column
+            ask_size_col: Name of ask size column
+
+        Returns:
+            DataFrame with order book features added
+        """
+        result = df.copy()
+        
+        # Check if required columns exist
+        required = [bid_price_col, ask_price_col]
+        missing = [col for col in required if col not in df.columns]
+        if missing:
+            logger.warning(f"Missing required columns for order book features: {missing}")
+            return result
+
+        # Mid Price
+        result["mid_price"] = (df[bid_price_col] + df[ask_price_col]) / 2
+        
+        # Bid-Ask Spread
+        result["bid_ask_spread"] = df[ask_price_col] - df[bid_price_col]
+        
+        # Relative Spread
+        # Relative Spread (handle zero mid_price)
+        safe_mid_price = result["mid_price"].replace(0, np.nan)
+        result["relative_spread"] = (
+            result["bid_ask_spread"] / safe_mid_price
+        )
+
+        # Weighted Average Price (WAP) - if sizes available
+        if bid_size_col in df.columns and ask_size_col in df.columns:
+            total_size = df[bid_size_col] + df[ask_size_col]
+            # Avoid division by zero
+            safe_total_size = total_size.replace(0, np.nan)
+            result["wap"] = (
+                (df[bid_price_col] * df[ask_size_col]) +
+                (df[ask_price_col] * df[bid_size_col])
+            ) / safe_total_size
+            result["wap"] = result["wap"].fillna(result["mid_price"])
+
+        logger.info("Created order book features")
+        return result
+
     def calculate_returns(
         self,
         df: pd.DataFrame,
@@ -371,7 +430,8 @@ class FeatureEngineer:
         include_lags: bool = True,
         include_rolling: bool = True,
         include_calendar: bool = True,
-        include_returns: bool = True
+        include_returns: bool = True,
+        include_order_book: bool = False
     ) -> pd.DataFrame:
         """
         Apply all feature engineering steps.
@@ -384,6 +444,7 @@ class FeatureEngineer:
             include_rolling: Whether to include rolling statistics
             include_calendar: Whether to include calendar features
             include_returns: Whether to include return features
+            include_order_book: Whether to include order book features (default: False)
 
         Returns:
             DataFrame with all engineered features
@@ -410,6 +471,9 @@ class FeatureEngineer:
         
         if include_calendar and isinstance(df.index, pd.DatetimeIndex):
             result = self.create_calendar_features(result)
+
+        if include_order_book:
+            result = self.calculate_order_book_features(result)
 
         # Store feature definitions
         self._feature_definitions = self._create_feature_definitions(
@@ -444,12 +508,17 @@ class FeatureEngineer:
             c for c in new_cols 
             if "_spread" in c or "_ratio" in c or "_corr_" in c
         ]
+        order_book_features = [
+            c for c in new_cols
+            if c in ["mid_price", "bid_ask_spread", "relative_spread", "wap"]
+        ]
 
         return FeatureDefinitions(
             lag_features=lag_features,
             rolling_features=rolling_features,
             calendar_features=calendar_features,
             cross_asset_features=cross_asset_features,
+            order_book_features=order_book_features,
             metadata={
                 "original_columns": list(original_df.columns),
                 "price_columns": price_columns,

@@ -50,6 +50,30 @@ def __(Path):
         "reports_path": "data/processed/reports",
         "missing_value_strategy": "forward_fill",
         "resample_freq": "1D",
+        "data_sources": {
+            "crypto": {
+                "path": "data/raw/crypto",
+                "assets": ["btc", "eth", "sol"],
+                "schema": {
+                    "timestamp": "datetime64[ns]",
+                    "open": "float64",
+                    "high": "float64",
+                    "low": "float64",
+                    "close": "float64",
+                    "volume": "float64"
+                }
+            },
+            "macro": {
+                "path": "data/raw/macro",
+                "assets": ["interest_rates", "sp500"],
+                "schema": {
+                    "timestamp": "datetime64[ns]",
+                    "interest_rate": "float64",
+                    "inflation_cpi": "float64",
+                    "sp500_close": "float64"
+                }
+            }
+        },
         "feature_engineering": {
             "lag_periods": [1, 2, 3, 5, 7, 14, 30],
             "rolling_windows": [7, 14, 30, 90],
@@ -75,42 +99,29 @@ def __(mo):
 def __(DATA_CONFIG, DataLoader, Path):
     loader = DataLoader(log_dir="logs/data_validation")
     
-    # Define schemas
-    btc_schema = {
-        "timestamp": "datetime64[ns]",
-        "open": "float64",
-        "high": "float64",
-        "low": "float64",
-        "close": "float64",
-        "volume": "float64"
-    }
+    # Load all data from config
+    all_data = loader.load_from_config(DATA_CONFIG["data_sources"])
     
-    macro_schema = {
-        "timestamp": "datetime64[ns]",
-        "interest_rate": "float64",
-        "inflation_cpi": "float64",
-        "sp500_close": "float64"
-    }
-
-    # Load data
-    try:
-        btc_path = str(Path(DATA_CONFIG["raw_data_path"]) / "btc_ohlcv.parquet")
-        btc_df = loader.load_parquet(btc_path, schema=btc_schema)
+    # Extract dataframes for further processing
+    crypto_data = all_data.get("crypto", {})
+    macro_data = all_data.get("macro", {})
+    
+    for asset, df in crypto_data.items():
+        print(f"Loaded {asset.upper()} data: {len(df)} rows")
+        if "timestamp" not in df.columns:
+            raise ValueError(f"Missing 'timestamp' column in {asset} data")
+        df.set_index("timestamp", inplace=True)
         
-        macro_path = str(Path(DATA_CONFIG["raw_data_path"]) / "macro_data.parquet")
-        macro_df = loader.load_parquet(macro_path, schema=macro_schema)
+    for indicator, df in macro_data.items():
+        print(f"Loaded {indicator} data: {len(df)} rows")
+        if "timestamp" not in df.columns:
+            raise ValueError(f"Missing 'timestamp' column in {indicator} data")
+        df.set_index("timestamp", inplace=True)
         
-        print(f"Loaded BTC data: {len(btc_df)} rows")
-        print(f"Loaded Macro data: {len(macro_df)} rows")
-        
-        # Set index
-        btc_df.set_index("timestamp", inplace=True)
-        macro_df.set_index("timestamp", inplace=True)
-        
-    except Exception as e:
-        print(f"Error loading data: {e}")
-        raise e
-    return btc_df, btc_path, btc_schema, loader, macro_df, macro_path, macro_schema
+    btc_df = crypto_data.get("btc")
+    macro_df = macro_data.get("sp500") # Downstream expects a single macro_df, using sp500 as primary representative
+    
+    return all_data, btc_df, crypto_data, loader, macro_data, macro_df
 
 
 @app.cell

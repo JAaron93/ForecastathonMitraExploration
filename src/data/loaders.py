@@ -3,7 +3,6 @@
 from typing import Dict, Optional, Any, List
 from dataclasses import dataclass
 import pandas as pd
-import numpy as np
 import json
 import logging
 from pathlib import Path
@@ -72,6 +71,70 @@ class DataLoader:
                 raise ValueError(f"Schema validation failed: {error_msg}")
 
         return df
+
+    def load_assets(
+        self,
+        base_path: str,
+        assets: List[str],
+        schema: Optional[Dict[str, str]] = None,
+        extension: str = "parquet"
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Load multiple assets from a base directory.
+
+        Args:
+            base_path: Base directory containing asset files
+            assets: List of asset names (file names without extension)
+            schema: Expected schema for all assets
+            extension: File extension (default: "parquet")
+
+        Returns:
+            Dictionary mapping asset name to its DataFrame
+        """
+        base_dir = Path(base_path)
+        if not base_dir.exists():
+            raise FileNotFoundError(f"Base directory not found: {base_path}")
+
+        loaded_assets = {}
+        for asset in assets:
+            file_path = base_dir / f"{asset}.{extension}"
+            try:
+                df = self.load_parquet(str(file_path), schema=schema)
+                loaded_assets[asset] = df
+                logger.info(f"Successfully loaded asset: {asset}")
+            except FileNotFoundError:
+                logger.warning(f"Asset file not found: {file_path}")
+            except Exception as e:
+                logger.error(f"Error loading asset {asset}: {e}")
+                raise
+
+        return loaded_assets
+
+    def load_from_config(
+        self,
+        data_sources_config: Dict[str, Any]
+    ) -> Dict[str, Dict[str, pd.DataFrame]]:
+        """
+        Load all data sources based on configuration.
+
+        Args:
+            data_sources_config: The 'data_sources' section of data_config.yaml
+
+        Returns:
+            Nested dictionary: {category: {asset_name: DataFrame}}
+        """
+        all_data = {}
+        for category, config in data_sources_config.items():
+            logger.info(f"Loading category: {category}")
+            path = config.get("path")
+            assets = config.get("assets", [])
+            schema = config.get("schema")
+            if not path or not assets:
+                logger.warning(f"Missing path or assets for category: {category}")
+                continue
+            loaded_category = self.load_assets(path, assets, schema=schema)
+            all_data[category] = loaded_category
+        return all_data
 
     def validate_schema(
         self,

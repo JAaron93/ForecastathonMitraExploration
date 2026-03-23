@@ -2,7 +2,7 @@
 Mitra Foundation Model integration using AutoGluon.
 """
 
-from typing import Dict, Any, Optional, Tuple, List, Union
+from typing import Dict, Any, Optional, Tuple
 import json
 import pandas as pd
 import numpy as np
@@ -11,6 +11,7 @@ from pathlib import Path
 from autogluon.tabular import TabularPredictor
 
 from ..models.base_model import BaseModel, logger
+
 
 class MitraModel(BaseModel):
     """
@@ -149,33 +150,66 @@ class MitraModel(BaseModel):
         return self.predictor.predict_proba(X).values
 
     def adapt_to_regime(
-        self, 
-        X_context: pd.DataFrame, 
-        y_context: pd.Series, 
-        strategy: str = "recent", 
-        n_samples: int = 100
+        self,
+        X_context: pd.DataFrame,
+        y_context: pd.Series,
+        strategy: str = "recent",
+        n_samples: int = 100,
+        target_volatility: Optional[float] = None,
+        volatility_window: int = 20
     ) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Select a subset of history to serve as the 'support set' for in-context learning.
-        
+
         Args:
             X_context: Full available historical features
             y_context: Full available historical targets
-            strategy: 'recent' (last N), 'random' (random N)
+            strategy: 'recent', 'random', or 'volatility_matching'
             n_samples: Number of samples to select
-            
+            target_volatility: Target volatility to match
+            volatility_window: Window size for calculating historical volatility
+
         Returns:
             X_support, y_support
         """
         available = len(X_context)
         if available <= n_samples:
             return X_context, y_context
-            
+
         if strategy == "recent":
             return X_context.iloc[-n_samples:], y_context.iloc[-n_samples:]
         elif strategy == "random":
             indices = np.random.choice(available, n_samples, replace=False)
             return X_context.iloc[indices], y_context.iloc[indices]
+        elif strategy == "volatility_matching":
+            if target_volatility is None:
+                # Fallback to recent if no target provided
+                return X_context.iloc[-n_samples:], y_context.iloc[-n_samples:]
+
+            # Calculate historical rolling volatility
+            # We assume y_context contains returns or price changes
+            hist_vol = y_context.rolling(window=volatility_window).std()
+
+            # Find samples where historical volatility is closest to target
+            vol_diff = (hist_vol - target_volatility).abs()
+            
+            # Drop NaNs to ensure we have valid volatility comparisons
+            valid_diffs = vol_diff.dropna()
+            
+            if len(valid_diffs) < n_samples:
+                logger.warning(
+                    f"Insufficient valid volatility samples ({len(valid_diffs)}) "
+                    f"for requested n_samples ({n_samples}). "
+                    "Falling back to most recent samples."
+                )
+                return X_context.iloc[-n_samples:], y_context.iloc[-n_samples:]
+
+            # Find best indices from valid samples
+            best_indices = valid_diffs.nsmallest(n_samples).index
+            # Sort indices to maintain temporal order
+            best_indices = sorted(best_indices)
+
+            return X_context.loc[best_indices], y_context.loc[best_indices]
         else:
             raise ValueError(f"Unknown adaptation strategy: {strategy}")
 
