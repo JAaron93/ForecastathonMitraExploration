@@ -180,8 +180,13 @@ class MitraModel(BaseModel):
             return X_context.iloc[-n_samples:], y_context.iloc[-n_samples:]
         elif strategy == "random":
             indices = np.random.choice(available, n_samples, replace=False)
+            indices = np.sort(indices)
             return X_context.iloc[indices], y_context.iloc[indices]
         elif strategy == "volatility_matching":
+            if volatility_window <= 0:
+                raise ValueError("volatility_window must be positive")
+            if target_volatility is not None and target_volatility < 0:
+                raise ValueError("target_volatility cannot be negative")
             if target_volatility is None:
                 # Fallback to recent if no target provided
                 return X_context.iloc[-n_samples:], y_context.iloc[-n_samples:]
@@ -198,9 +203,12 @@ class MitraModel(BaseModel):
             
             if len(valid_diffs) < n_samples:
                 logger.warning(
-                    f"Insufficient valid volatility samples ({len(valid_diffs)}) "
-                    f"for requested n_samples ({n_samples}). "
-                    "Falling back to most recent samples."
+                    f"Insufficient valid volatility samples (available: {len(valid_diffs)}) "
+                    f"to satisfy requested n_samples ({n_samples}). "
+                    f"Falling back to the most recent {n_samples} samples "
+                    f"(index range: {X_context.index[-n_samples]} to {X_context.index[-1]}). "
+                    "Action: Consider reducing n_samples, reducing volatility_window, "
+                    "or providing more historical data."
                 )
                 return X_context.iloc[-n_samples:], y_context.iloc[-n_samples:]
 

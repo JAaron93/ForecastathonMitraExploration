@@ -77,7 +77,9 @@ class DataLoader:
         base_path: str,
         assets: List[str],
         schema: Optional[Dict[str, str]] = None,
-        extension: str = "parquet"
+        extension: str = "parquet",
+        strict: bool = False,
+        status: Optional[Dict[str, Any]] = None
     ) -> Dict[str, pd.DataFrame]:
         """
         Load multiple assets from a base directory.
@@ -87,26 +89,50 @@ class DataLoader:
             assets: List of asset names (file names without extension)
             schema: Expected schema for all assets
             extension: File extension (default: "parquet")
+            strict: If True, any error will abort loading and re-raise.
+                   If False, errors are logged and loading continues.
+            status: Optional dictionary to store loading status/metadata.
+                   Will be populated with 'loaded_assets' and 'failed_assets'.
 
         Returns:
-            Dictionary mapping asset name to its DataFrame
+            Dictionary mapping asset name to its DataFrame. If strict is False,
+            this may contain only a subset of requested assets.
+
+        Raises:
+            FileNotFoundError: If base_dir doesn't exist, or if strict=True
+                              and an asset file is missing.
+            ValueError: If strict=True and schema validation fails.
+            Exception: Any other error if strict=True.
         """
         base_dir = Path(base_path)
         if not base_dir.exists():
             raise FileNotFoundError(f"Base directory not found: {base_path}")
 
         loaded_assets = {}
+        if status is not None:
+            status["loaded_assets"] = []
+            status["failed_assets"] = {}
+
         for asset in assets:
             file_path = base_dir / f"{asset}.{extension}"
             try:
                 df = self.load_parquet(str(file_path), schema=schema)
                 loaded_assets[asset] = df
+                if status is not None:
+                    status["loaded_assets"].append(asset)
                 logger.info(f"Successfully loaded asset: {asset}")
-            except FileNotFoundError:
-                logger.warning(f"Asset file not found: {file_path}")
             except Exception as e:
+                if strict:
+                    logger.error(
+                        f"Strict mode: Aborting load due to error in asset "
+                        f"{asset}: {e}"
+                    )
+                    raise
+
                 logger.error(f"Error loading asset {asset}: {e}")
-                raise
+                if status is not None:
+                    status["failed_assets"][asset] = str(e)
+                continue
 
         return loaded_assets
 
@@ -126,6 +152,9 @@ class DataLoader:
         all_data = {}
         for category, config in data_sources_config.items():
             logger.info(f"Loading category: {category}")
+            if not isinstance(config, dict):
+                logger.warning(f"Invalid config for category '{category}': expected dict, got {type(config).__name__}")
+                continue
             path = config.get("path")
             assets = config.get("assets", [])
             schema = config.get("schema")

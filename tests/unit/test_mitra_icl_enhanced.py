@@ -18,10 +18,16 @@ def test_volatility_matching_strategy():
     X_support, y_support = model.adapt_to_regime(
         X, y, strategy="volatility_matching", n_samples=10, target_volatility=1.0
     )
-    
+
     assert len(X_support) == 10
+    assert len(y_support) == 10
     # Should pick from the high volatility section (indices 50-99)
-    assert all(X_support.index >= 40) # Allowing some window overlap margin
+    # The first valid volatility index is at index 19 (volatility_window=20),
+    # but the high vol section starts at 50.
+    assert all(X_support.index >= 50)
+    # Ensure y_support corresponds to high volatility values
+    assert y_support.std() > 0.5  # Should be close to 1.0, definitely higher than 0.1
+    assert all(y_support.index == X_support.index)
 
 def test_volatility_matching_fallback():
     model = MitraModel()

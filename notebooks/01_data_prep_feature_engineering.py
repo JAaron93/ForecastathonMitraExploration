@@ -119,7 +119,12 @@ def __(DATA_CONFIG, DataLoader, Path):
         df.set_index("timestamp", inplace=True)
         
     btc_df = crypto_data.get("btc")
+    if btc_df is None:
+        raise RuntimeError("Failed to retrieve 'btc_df' from crypto_data. Check if 'btc' is in data_sources and exists in data/raw/crypto.")
+        
     macro_df = macro_data.get("sp500") # Downstream expects a single macro_df, using sp500 as primary representative
+    if macro_df is None:
+        raise RuntimeError("Failed to retrieve 'macro_df' from macro_data. Check if 'sp500' is in data_sources and exists in data/raw/macro.")
     
     return all_data, btc_df, crypto_data, loader, macro_data, macro_df
 
