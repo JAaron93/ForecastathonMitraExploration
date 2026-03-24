@@ -3,7 +3,21 @@
 import pytest
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+
+try:
+    import mlflow
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+
+
+@pytest.fixture(autouse=True)
+def cleanup_mlflow_run():
+    """Ensure any active MLflow run is ended after each test."""
+    yield
+    if MLFLOW_AVAILABLE:
+        while mlflow.active_run():
+            mlflow.end_run()
 
 
 @pytest.fixture

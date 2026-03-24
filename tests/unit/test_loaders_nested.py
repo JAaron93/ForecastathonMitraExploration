@@ -76,7 +76,7 @@ def test_load_from_config_nested(temp_data_dir):
     assert "close" in btc_df.columns
     assert btc_df["timestamp"].dtype == "datetime64[ns]"
     assert btc_df["close"].dtype == "float64"
-    
+
     # Check macro->sp500 DataFrame schema
     assert "timestamp" in sp500_df.columns
     assert "sp500_close" in sp500_df.columns
@@ -123,7 +123,10 @@ def test_load_assets_status_tracking(temp_data_dir):
     assert "nonexistent" not in loaded
     assert set(status["loaded_assets"]) == {"btc"}
     assert "nonexistent" in status["failed_assets"]
-    assert "Parquet file not found" in status["failed_assets"]["nonexistent"]
+    # In DataLoader.load_assets, status["failed_assets"]["nonexistent"]
+    # is a dict with 'message'
+    assert "Parquet file not found" in \
+        status["failed_assets"]["nonexistent"]["message"]
 
 
 def test_load_assets_strict_schema_validation(temp_data_dir):
@@ -135,4 +138,33 @@ def test_load_assets_strict_schema_validation(temp_data_dir):
         loader.load_assets(
             str(temp_data_dir / "crypto"), ["btc"],
             schema=bad_schema, strict=True
+        )
+
+
+def test_load_assets_invalid_status_types(temp_data_dir):
+    loader = DataLoader()
+
+    # Case 1: status is not a dict
+    with pytest.raises(TypeError, match="status must be a dict"):
+        loader.load_assets(
+            str(temp_data_dir / "crypto"), ["btc"],
+            status="not_a_dict"
+        )
+
+    # Case 2: loaded_assets is not a list
+    with pytest.raises(
+        TypeError, match=r"status\['loaded_assets'\] must be a list"
+    ):
+        loader.load_assets(
+            str(temp_data_dir / "crypto"), ["btc"],
+            status={"loaded_assets": "not_a_list"}
+        )
+
+    # Case 3: failed_assets is not a dict
+    with pytest.raises(
+        TypeError, match=r"status\['failed_assets'\] must be a dict"
+    ):
+        loader.load_assets(
+            str(temp_data_dir / "crypto"), ["btc"],
+            status={"failed_assets": "not_a_dict"}
         )

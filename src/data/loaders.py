@@ -92,7 +92,10 @@ class DataLoader:
             strict: If True, any error will abort loading and re-raise.
                    If False, errors are logged and loading continues.
             status: Optional dictionary to store loading status/metadata.
-                   Will be populated with 'loaded_assets' and 'failed_assets'.
+                   If provided, it must be a dictionary.
+                   - 'loaded_assets' (if exists) must be a list.
+                   - 'failed_assets' (if exists) must be a dict.
+                   These keys will be initialized if they don't exist.
 
         Returns:
             Dictionary mapping asset name to its DataFrame. If strict is False,
@@ -110,8 +113,28 @@ class DataLoader:
 
         loaded_assets = {}
         if status is not None:
-            status.setdefault("loaded_assets", [])
-            status.setdefault("failed_assets", {})
+            if not isinstance(status, dict):
+                raise TypeError(
+                    f"status must be a dict, got {type(status).__name__}"
+                )
+
+            if "loaded_assets" in status:
+                if not isinstance(status["loaded_assets"], list):
+                    raise TypeError(
+                        f"status['loaded_assets'] must be a list, "
+                        f"got {type(status['loaded_assets']).__name__}"
+                    )
+            else:
+                status["loaded_assets"] = []
+
+            if "failed_assets" in status:
+                if not isinstance(status["failed_assets"], dict):
+                    raise TypeError(
+                        f"status['failed_assets'] must be a dict, "
+                        f"got {type(status['failed_assets']).__name__}"
+                    )
+            else:
+                status["failed_assets"] = {}
 
         for asset in assets:
             file_path = base_dir / f"{asset}.{extension}"
