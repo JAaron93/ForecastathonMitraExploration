@@ -120,11 +120,11 @@ def __(DATA_CONFIG, DataLoader, Path):
         
     btc_df = crypto_data.get("btc")
     if btc_df is None:
-        raise RuntimeError("Failed to retrieve 'btc_df' from crypto_data. Check if 'btc' is in data_sources and exists in data/raw/crypto.")
+        raise RuntimeError("Failed to retrieve key 'btc' from crypto_data. Verify 'btc' exists in data_sources and data/raw/crypto.")
         
     macro_df = macro_data.get("sp500") # Downstream expects a single macro_df, using sp500 as primary representative
     if macro_df is None:
-        raise RuntimeError("Failed to retrieve 'macro_df' from macro_data. Check if 'sp500' is in data_sources and exists in data/raw/macro.")
+        raise RuntimeError("Failed to retrieve key 'sp500' from macro_data. Verify 'sp500' exists in data_sources and data/raw/macro.")
     
     return all_data, btc_df, crypto_data, loader, macro_data, macro_df
 
@@ -255,7 +255,7 @@ def __(DATA_CONFIG, Path, processed_df, profiler):
     if output_file.exists():
         print("SUCCESS: Pipeline completed and file saved.")
     else:
-        print("ERROR: File not found.")
+        raise RuntimeError(f"ERROR: Pipeline output file not found at {output_file}")
     return output_file, processed_profile_path
 
 

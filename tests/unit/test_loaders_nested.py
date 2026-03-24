@@ -121,7 +121,7 @@ def test_load_assets_status_tracking(temp_data_dir):
 
     assert "btc" in loaded
     assert "nonexistent" not in loaded
-    assert status["loaded_assets"] == ["btc"]
+    assert set(status["loaded_assets"]) == {"btc"}
     assert "nonexistent" in status["failed_assets"]
     assert "Parquet file not found" in status["failed_assets"]["nonexistent"]
 

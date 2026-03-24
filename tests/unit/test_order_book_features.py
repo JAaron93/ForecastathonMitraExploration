@@ -48,6 +48,12 @@ def test_calculate_order_book_features_div_by_zero():
     
     # Mid Price: (100+102)/2 = 101, (101+103)/2 = 102
     assert result["mid_price"].iloc[0] == 101.0
+    assert result["mid_price"].iloc[1] == 102.0
+
+    # Spread: 102-100 = 2, 103-101 = 2 (unaffected by zero sizes)
+    assert result["bid_ask_spread"].iloc[0] == 2.0
+    assert result["bid_ask_spread"].iloc[1] == 2.0
+
     # WAP: Total size is 0, should fallback to mid_price
     assert result["wap"].iloc[0] == 101.0
     assert result["wap"].iloc[1] == 102.0

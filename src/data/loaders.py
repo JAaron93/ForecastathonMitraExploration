@@ -110,8 +110,8 @@ class DataLoader:
 
         loaded_assets = {}
         if status is not None:
-            status["loaded_assets"] = []
-            status["failed_assets"] = {}
+            status.setdefault("loaded_assets", [])
+            status.setdefault("failed_assets", {})
 
         for asset in assets:
             file_path = base_dir / f"{asset}.{extension}"
@@ -131,7 +131,10 @@ class DataLoader:
 
                 logger.error(f"Error loading asset {asset}: {e}")
                 if status is not None:
-                    status["failed_assets"][asset] = str(e)
+                    status["failed_assets"][asset] = {
+                        "type": type(e).__name__,
+                        "message": str(e),
+                    }
                 continue
 
         return loaded_assets

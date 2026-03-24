@@ -27,7 +27,7 @@ def test_volatility_matching_strategy():
     assert all(X_support.index >= 50)
     # Ensure y_support corresponds to high volatility values
     assert y_support.std() > 0.5  # Should be close to 1.0, definitely higher than 0.1
-    assert all(y_support.index == X_support.index)
+    assert y_support.index.equals(X_support.index)
 
 def test_volatility_matching_fallback():
     model = MitraModel()
