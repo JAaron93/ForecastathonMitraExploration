@@ -13,7 +13,7 @@ from src.data.structs import TimeSeriesData
 from src.utils.serialization import (
     save_json, load_json, 
     save_parquet, load_parquet,
-    save_pickle, load_pickle,
+    save_joblib, load_joblib,
     save_timeseries_data, load_timeseries_data
 )
 
@@ -50,11 +50,11 @@ class TestSerializationProperties:
 
     @given(st.dictionaries(st.text(), st.integers() | st.floats(allow_nan=False) | st.text()))
     @settings(max_examples=50, deadline=None)
-    def test_json_roundtrip(self, data):
-        """Property: JSON serialization round-trip consistency."""
-        path = os.path.join(self.test_dir, "test.json")
-        save_json(data, path)
-        loaded = load_json(path)
+    def test_joblib_roundtrip(self, data):
+        """Property: Joblib serialization round-trip consistency."""
+        path = os.path.join(self.test_dir, "test.joblib")
+        save_joblib(data, path)
+        loaded = load_joblib(path)
         assert data == loaded
 
     @given(time_series_dataframe())

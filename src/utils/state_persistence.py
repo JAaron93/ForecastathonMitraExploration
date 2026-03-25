@@ -2,7 +2,7 @@
 
 import json
 import logging
-import pickle
+import joblib
 import shutil
 from dataclasses import asdict
 from datetime import datetime
@@ -59,9 +59,8 @@ class PipelineStateManager:
             
         # Save Data if provided
         if data is not None:
-             data_path = run_dir / f"{step_name}_data.pkl"
-             with open(data_path, "wb") as f:
-                 pickle.dump(data, f)
+             data_path = run_dir / f"{step_name}_data.joblib"
+             joblib.dump(data, data_path)
                  
         logger.debug(f"Saved state for {run_id}/{step_name}")
         return str(run_dir)
@@ -86,10 +85,9 @@ class PipelineStateManager:
             
         result = {"context": meta["context"], "meta": meta}
         
-        data_path = run_dir / f"{step_name}_data.pkl"
+        data_path = run_dir / f"{step_name}_data.joblib"
         if data_path.exists():
-            with open(data_path, "rb") as f:
-                result["data"] = pickle.load(f)
+            result["data"] = joblib.load(data_path)
         else:
             result["data"] = None
             

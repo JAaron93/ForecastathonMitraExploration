@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import json
 import logging
-import pickle
+import joblib
 
 import numpy as np
 import pandas as pd
@@ -154,9 +154,8 @@ class BaseModel(ABC):
         save_dir.mkdir(parents=True, exist_ok=True)
 
         # Save model object
-        model_path = save_dir / "model.pkl"
-        with open(model_path, "wb") as f:
-            pickle.dump(self.model_object, f)
+        model_path = save_dir / "model.joblib"
+        joblib.dump(self.model_object, model_path)
 
         # Save metadata
         artifact = self.get_artifact()
@@ -179,9 +178,13 @@ class BaseModel(ABC):
         load_dir = Path(path)
 
         # Load model object
-        model_path = load_dir / "model.pkl"
-        with open(model_path, "rb") as f:
-            self.model_object = pickle.load(f)
+        model_path = load_dir / "model.joblib"
+        if not model_path.exists():
+            # Fallback for old models if necessary, but per plan we "start fresh"
+            # so we only look for .joblib
+            raise FileNotFoundError(f"Model file not found at {model_path}")
+        
+        self.model_object = joblib.load(model_path)
 
         # Load metadata
         metadata_path = load_dir / "metadata.json"

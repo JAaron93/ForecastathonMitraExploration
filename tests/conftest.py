@@ -23,7 +23,7 @@ def cleanup_mlflow_run():
             mlflow.end_run()
             attempts += 1
         
-        if attempts >= max_attempts:
+        if mlflow.active_run():
             logging.warning(f"Failed to end MLflow run after {max_attempts} attempts.")
 
 

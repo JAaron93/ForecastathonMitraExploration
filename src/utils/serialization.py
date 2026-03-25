@@ -4,7 +4,7 @@ Handles JSON, Parquet, Pickle, and custom struct serialization.
 """
 
 import json
-import pickle
+import joblib
 import logging
 import shutil
 from pathlib import Path
@@ -41,17 +41,15 @@ def load_json(path: Union[str, Path]) -> Any:
     with open(path, 'r') as f:
         return json.load(f)
 
-def save_pickle(obj: Any, path: Union[str, Path]) -> None:
-    """Save object to pickle."""
+def save_joblib(obj: Any, path: Union[str, Path]) -> None:
+    """Save object to joblib."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'wb') as f:
-        pickle.dump(obj, f)
-    logger.debug(f"Saved pickle to {path}")
+    joblib.dump(obj, path)
+    logger.debug(f"Saved joblib to {path}")
 
-def load_pickle(path: Union[str, Path]) -> Any:
-    """Load object from pickle."""
-    with open(path, 'rb') as f:
-        return pickle.load(f)
+def load_joblib(path: Union[str, Path]) -> Any:
+    """Load object from joblib."""
+    return joblib.load(path)
 
 def save_parquet(df: pd.DataFrame, path: Union[str, Path], **kwargs) -> None:
     """Save DataFrame to Parquet."""
