@@ -27,8 +27,8 @@ markers = [
     "property: marks tests as property-based tests",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
+    "default::DeprecationWarning",
+    "default::PendingDeprecationWarning",
 ]
 
 [tool.coverage.run]

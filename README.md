@@ -81,8 +81,8 @@ marimo edit notebooks/01_data_prep_feature_engineering.py
 ### Workflow Steps
 
 1.  **Data Preparation (`01_data_prep...`)**:
-    *   Loads raw data from `data/raw/` (configured in `config/data_config.yaml`).
-    *   Cleans, validates, and resamples time series.
+    *   Loads raw data from `data/raw/` (configured in `config/data_config.yaml`) using nested asset organization.
+    *   Cleans, validates (strict mode schema tracking), and resamples time series.
     *   Generates features (lags, technical indicators).
     *   Saves processed data to `data/processed/`.
 
@@ -125,7 +125,7 @@ See `config/templates/` for example configurations:
 
 ## Testing
 
-Run the test suite using `pytest`:
+Run the test suite using `pytest`. The suite actively unsuppresses `DeprecationWarning` and `PendingDeprecationWarning` exceptions (via `pyproject.toml`) to encourage proactive code maintenance.
 
 ```bash
 # Run all tests
@@ -146,6 +146,7 @@ pytest tests/integration
 *   **Linting**: `flake8 src tests`
 *   **Formatting**: `black src tests`
 *   **Type Checking**: `mypy src`
+*   **Security**: Explicit overrides in `requirements.txt` to patch CVEs while honoring strict pipeline dependency limits.
 
 ## License
 

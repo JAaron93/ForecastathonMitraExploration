@@ -3,6 +3,7 @@
 import pytest
 import pandas as pd
 import numpy as np
+import logging
 
 try:
     import mlflow
@@ -16,8 +17,14 @@ def cleanup_mlflow_run():
     """Ensure any active MLflow run is ended after each test."""
     yield
     if MLFLOW_AVAILABLE:
-        while mlflow.active_run():
+        max_attempts = 10
+        attempts = 0
+        while mlflow.active_run() and attempts < max_attempts:
             mlflow.end_run()
+            attempts += 1
+        
+        if attempts >= max_attempts:
+            logging.warning(f"Failed to end MLflow run after {max_attempts} attempts.")
 
 
 @pytest.fixture

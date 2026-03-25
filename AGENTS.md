@@ -44,6 +44,9 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 - [x] Testing framework with pytest + hypothesis
 - [x] CI pipeline (GitHub Actions)
 - [x] Data processing: `DataLoader`, `Preprocessor`, `DataValidator`, `DataProfiler`, `TimeSeriesSplitter`
+- [x] Nested asset organization and strict mode status tracking in DataLoaders
+- [x] Edge-case and boundary testing for Regime Detection
+- [x] Robust MLflow run cleanup and retry logic in test fixtures
 - [x] Feature engineering: lag features, rolling stats, technical indicators (RSI, MACD, Bollinger), regime detection, calendar features
 - [x] Base model interface and evaluation framework
 - [x] Model implementations (Naive Bayes, XGBoost, LSTM, Mitra)
@@ -57,7 +60,7 @@ This is a **Forecasting Research Pipeline** for the Autonity/Forecastathon tradi
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `DataLoader` | `src/data/loaders.py` | Parquet loading, schema validation |
+| `DataLoader` | `src/data/loaders.py` | Parquet loading, nested asset routing, strict mode schema validation |
 | `Preprocessor` | `src/data/preprocessors.py` | Missing values, outliers, resampling |
 | `DataValidator` | `src/data/validators.py` | Schema validation, PSI calculation |
 | `DataProfiler` | `src/data/profilers.py` | ydata-profiling integration |
