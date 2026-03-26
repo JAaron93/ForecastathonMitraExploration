@@ -59,8 +59,8 @@ class PipelineStateManager:
             
         # Save Data if provided
         if data is not None:
-             data_path = run_dir / f"{step_name}_data.joblib"
-             joblib.dump(data, data_path)
+            data_path = run_dir / f"{step_name}_data.joblib"
+            joblib.dump(data, data_path)
                  
         logger.debug(f"Saved state for {run_id}/{step_name}")
         return str(run_dir)

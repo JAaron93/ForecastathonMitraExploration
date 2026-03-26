@@ -6,15 +6,15 @@ Handles JSON, Parquet, Pickle, and custom struct serialization.
 import json
 import joblib
 import logging
-import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 from datetime import datetime
 import pandas as pd
 import numpy as np
 from src.data.structs import TimeSeriesData
 
 logger = logging.getLogger(__name__)
+
 
 class DateTimeEncoder(json.JSONEncoder):
     """JSON encoder that handles datetime and numpy types."""
@@ -36,10 +36,12 @@ def save_json(data: Any, path: Union[str, Path], **kwargs) -> None:
         json.dump(data, f, cls=DateTimeEncoder, indent=2, **kwargs)
     logger.debug(f"Saved JSON to {path}")
 
+
 def load_json(path: Union[str, Path]) -> Any:
     """Load data from JSON."""
     with open(path, 'r') as f:
         return json.load(f)
+
 
 def save_joblib(obj: Any, path: Union[str, Path]) -> None:
     """Save object to joblib."""
@@ -47,9 +49,61 @@ def save_joblib(obj: Any, path: Union[str, Path]) -> None:
     joblib.dump(obj, path)
     logger.debug(f"Saved joblib to {path}")
 
-def load_joblib(path: Union[str, Path]) -> Any:
-    """Load object from joblib."""
-    return joblib.load(path)
+
+def load_joblib(
+    path: Union[str, Path], 
+    signature: Optional[str] = None, 
+    hmac_key: Optional[bytes] = None
+) -> Any:
+    """
+    Load object from joblib with optional HMAC signature verification.
+    
+    Args:
+        path: Path to the joblib file
+        signature: Optional HMAC signature to verify (hex string)
+        hmac_key: Optional HMAC key for verification (bytes)
+        
+    Returns:
+        Deserialized object
+        
+    Raises:
+        ValueError: If signature verification fails
+        FileNotFoundError: If file doesn't exist
+        Exception: For other deserialization errors
+    """
+    if not Path(path).exists():
+        raise FileNotFoundError(f"Joblib file not found: {path}")
+    
+    # If signature verification is requested
+    if signature is not None and hmac_key is not None:
+        try:
+            import hmac
+            
+            # Read file contents
+            with open(path, 'rb') as f:
+                file_data = f.read()
+            
+            # Verify HMAC
+            expected_signature = hmac.new(
+                hmac_key, file_data, 'sha256'
+            ).hexdigest()
+            if not hmac.compare_digest(expected_signature, signature):
+                raise ValueError(
+                    f"HMAC signature verification failed for {path}"
+                )
+                
+        except ImportError:
+            raise ImportError(
+                "hmac module is required for signature verification"
+            )
+        except Exception as e:
+            raise ValueError(f"Signature verification failed: {str(e)}")
+    
+    # If no signature verification or verification passed, proceed with loading
+    try:
+        return joblib.load(path)
+    except Exception as e:
+        raise ValueError(f"Failed to load joblib file: {str(e)}")
 
 def save_parquet(df: pd.DataFrame, path: Union[str, Path], **kwargs) -> None:
     """Save DataFrame to Parquet."""
@@ -82,22 +136,31 @@ def save_timeseries_data(data: TimeSeriesData, path: Union[str, Path]) -> None:
     target_meta = {"is_series": False, "name": None}
     
     if isinstance(data.targets, pd.Series):
-        # Preserve original name (which can be None), but use safe string for Parquet column
+        # Preserve original name (which can be None), but use safe
+        # string for Parquet column
         original_name = data.targets.name
-        # JSON serializer handles None -> null. If name is complex object, use str()
-        # But for exact preservation, we assume it's JSON-compatible or None for now.
+        # JSON serializer handles None -> null. If name is complex
+        # object, use str()
+        # But for exact preservation, we assume it's JSON-compatible
+        # or None for now.
         # If it's a number, JSON is fine.
         target_meta = {"is_series": True, "name": original_name}
         
-        target_col_name = str(original_name) if original_name is not None else "target"
-        data.targets.to_frame(name=target_col_name).to_parquet(save_dir / "targets.parquet")
+        target_col_name = (
+            str(original_name) if original_name is not None else "target"
+        )
+        data.targets.to_frame(
+            name=target_col_name
+        ).to_parquet(save_dir / "targets.parquet")
     else:
         save_parquet(data.targets, save_dir / "targets.parquet")
         
     save_json(target_meta, save_dir / "target_meta.json")
         
     # Save timestamp
-    pd.DataFrame({"timestamp": data.timestamp}).to_parquet(save_dir / "timestamp.parquet")
+    pd.DataFrame(
+        {"timestamp": data.timestamp}
+    ).to_parquet(save_dir / "timestamp.parquet")
     
     save_json(data.metadata, save_dir / "metadata.json")
     save_json(data.split_indices, save_dir / "split_indices.json")
@@ -119,24 +182,29 @@ def load_timeseries_data(path: Union[str, Path]) -> TimeSeriesData:
         target_meta = load_json(target_meta_path)
     else:
         # Fallback heuristic
-        target_meta = {"is_series": len(targets_df.columns) == 1 and targets_df.columns[0] == "target", 
-                       "name": "target"}
+        target_meta = {
+            "is_series": len(targets_df.columns) == 1
+            and targets_df.columns[0] == "target",
+            "name": "target"
+        }
 
     if target_meta.get("is_series"):
         original_name = target_meta.get("name")
         
         # Determine likely column name in Parquet
         # If original_name is None, we saved it as "target"
-        expected_col = str(original_name) if original_name is not None else "target"
+        expected_col = (
+            str(original_name) if original_name is not None else "target"
+        )
         
         if expected_col in targets_df.columns:
             targets = targets_df[expected_col]
         elif "target" in targets_df.columns:
-             targets = targets_df["target"]
+            targets = targets_df["target"]
         else:
-             # Fallback: take first column
-             targets = targets_df.iloc[:, 0]
-             
+            # Fallback: take first column
+            targets = targets_df.iloc[:, 0]
+            
         targets.name = original_name
     else:
         targets = targets_df

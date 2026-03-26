@@ -56,13 +56,22 @@ class DataLoader:
         Raises:
             FileNotFoundError: If the file doesn't exist
             ValueError: If schema validation fails
+            pd.errors.ParserError: If there's an error parsing the Parquet file
+            OSError: If there's an OS-level error reading the file
         """
         file_path = Path(path)
         if not file_path.exists():
             raise FileNotFoundError(f"Parquet file not found: {path}")
 
-        df = pd.read_parquet(path)
-        logger.info(f"Loaded {len(df)} rows from {path}")
+        try:
+            df = pd.read_parquet(path)
+            logger.info(f"Loaded {len(df)} rows from {path}")
+        except pd.errors.ParserError as e:
+            error_msg = f"Error parsing Parquet file {path}: {e}"
+            raise pd.errors.ParserError(error_msg) from e
+        except OSError as e:
+            error_msg = f"OS error reading Parquet file {path}: {e}"
+            raise OSError(error_msg) from e
 
         if schema:
             result = self.validate_schema(df, schema)
@@ -144,20 +153,72 @@ class DataLoader:
                 if status is not None:
                     status["loaded_assets"].append(asset)
                 logger.info(f"Successfully loaded asset: {asset}")
+            except FileNotFoundError as e:
+                if strict:
+                    error_msg = (
+                        f"Strict mode: Aborting load due to missing file for asset {asset}: {e}"
+                    )
+                    logger.error(error_msg)
+                    raise
+                logger.error(f"File not found for asset {asset}: {e}")
+                if status is not None:
+                    error_info = {
+                        "type": "FileNotFoundError",
+                        "message": str(e),
+                    }
+                    status["failed_assets"][asset] = error_info
+            except pd.errors.ParserError as e:
+                if strict:
+                    error_msg = (
+                        f"Strict mode: Aborting load due to parsing error for asset {asset}: {e}"
+                    )
+                    logger.error(error_msg)
+                    raise
+                logger.error(f"Parsing error for asset {asset}: {e}")
+                if status is not None:
+                    error_info = {
+                        "type": "ParserError",
+                        "message": str(e),
+                    }
+                    status["failed_assets"][asset] = error_info
+            except OSError as e:
+                if strict:
+                    error_msg = (
+    f"Strict mode: Aborting load due to OS error for asset {asset}: {e}"
+)
+                    logger.error(error_msg)
+                    raise
+                logger.error(f"OS error for asset {asset}: {e}")
+                if status is not None:
+                    error_info = {
+                        "type": "OSError",
+                        "message": str(e),
+                    }
+                    status["failed_assets"][asset] = error_info
+            except ValueError as e:
+                if strict:
+                    error_msg = f"Strict mode: Aborting load due to schema validation error for asset {asset}: {e}"
+                    logger.error(error_msg)
+                    raise
+                logger.error(f"Schema validation error for asset {asset}: {e}")
+                if status is not None:
+                    error_info = {
+                        "type": "ValueError",
+                        "message": str(e),
+                    }
+                    status["failed_assets"][asset] = error_info
             except Exception as e:
                 if strict:
-                    logger.error(
-                        f"Strict mode: Aborting load due to error in asset "
-                        f"{asset}: {e}"
-                    )
+                    error_msg = f"Strict mode: Aborting load due to unexpected error for asset {asset}: {e}"
+                    logger.error(error_msg)
                     raise
-
-                logger.error(f"Error loading asset {asset}: {e}")
+                logger.error(f"Unexpected error for asset {asset}: {e}")
                 if status is not None:
-                    status["failed_assets"][asset] = {
+                    error_info = {
                         "type": type(e).__name__,
                         "message": str(e),
                     }
+                    status["failed_assets"][asset] = error_info
                 continue
 
         return loaded_assets
@@ -179,13 +240,15 @@ class DataLoader:
         for category, config in data_sources_config.items():
             logger.info(f"Loading category: {category}")
             if not isinstance(config, dict):
-                logger.warning(f"Invalid config for category '{category}': expected dict, got {type(config).__name__}")
+                error_msg = f"Invalid config for category '{category}': expected dict, got {type(config).__name__}"
+                logger.warning(error_msg)
                 continue
             path = config.get("path")
             assets = config.get("assets", [])
             schema = config.get("schema")
             if not path or not assets:
-                logger.warning(f"Missing path or assets for category: {category}")
+                error_msg = f"Missing path or assets for category: {category}"
+                logger.warning(error_msg)
                 continue
             loaded_category = self.load_assets(path, assets, schema=schema)
             all_data[category] = loaded_category

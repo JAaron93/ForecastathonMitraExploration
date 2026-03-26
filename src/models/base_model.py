@@ -177,17 +177,17 @@ class BaseModel(ABC):
         """
         load_dir = Path(path)
 
-        # Load model object
+        # Load model object: only .joblib is supported
         model_path = load_dir / "model.joblib"
         if not model_path.exists():
-            # Fallback for old models if necessary, but per plan we "start fresh"
-            # so we only look for .joblib
             raise FileNotFoundError(f"Model file not found at {model_path}")
         
         self.model_object = joblib.load(model_path)
 
         # Load metadata
         metadata_path = load_dir / "metadata.json"
+        if not metadata_path.exists():
+            raise FileNotFoundError(f"Metadata file not found at {metadata_path}")
         with open(metadata_path, "r") as f:
             metadata = json.load(f)
 

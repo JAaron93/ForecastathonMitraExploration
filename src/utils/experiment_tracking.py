@@ -89,7 +89,8 @@ class ExperimentTracker:
             enable_monitoring: Whether to enable background system monitoring
         """
         self.experiment_name = experiment_name
-        self.tracking_uri = tracking_uri or "experiments/mlflow_runs"
+        # Use SQLite for tracking URI to avoid deprecation warnings
+        self.tracking_uri = tracking_uri or "sqlite:///experiments/mlflow.db"
         self.artifact_location = artifact_location or "experiments/artifacts"
         self._current_run: Optional[ExperimentRun] = None
         self._mlflow_run = None

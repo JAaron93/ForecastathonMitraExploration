@@ -123,18 +123,27 @@ class ConfigManager:
                 
         return current
 
-    def set_value(self, config: Dict[str, Any], path: str, value: Any) -> None:
+    def set_value(self, config: Dict[str, Any], path: str, value: Any) -> Dict[str, Any]:
         """
         Set a value in configuration using dot notation.
         Creates intermediate dictionaries if they don't exist.
         
+        This method does not modify the input configuration dictionary.
+        Instead, it returns a new configuration dictionary with the value set at the specified path.
+        
         Args:
-            config: Configuration dictionary (modified in-place)
-            path: Dot-separated path
-            value: Value to set
+            config: Configuration dictionary (will not be modified)
+            path: Dot-separated path (e.g., 'model.params.learning_rate')
+            value: Value to set at the specified path
+            
+        Returns:
+            A new configuration dictionary with the value set at the given path.
+            The input config remains unchanged and is not modified in any way.
         """
+        # Create a deep copy to avoid mutating the input
+        new_config = copy.deepcopy(config)
         keys = path.split('.')
-        current = config
+        current = new_config
         
         for i, key in enumerate(keys[:-1]):
             if key not in current or not isinstance(current[key], dict):
@@ -142,6 +151,7 @@ class ConfigManager:
             current = current[key]
             
         current[keys[-1]] = value
+        return new_config
 
     def update_config(self, config: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
         """
