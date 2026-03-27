@@ -184,8 +184,8 @@ class DataLoader:
             except OSError as e:
                 if strict:
                     error_msg = (
-    f"Strict mode: Aborting load due to OS error for asset {asset}: {e}"
-)
+                        f"Strict mode: Aborting load due to OS error for asset {asset}: {e}"
+                    )
                     logger.error(error_msg)
                     raise
                 logger.error(f"OS error for asset {asset}: {e}")

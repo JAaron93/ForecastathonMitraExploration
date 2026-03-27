@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FeatureDefinitions:
     """Container for feature definitions and metadata."""
+
     lag_features: List[str]
     rolling_features: List[str]
     calendar_features: List[str]
@@ -48,7 +49,7 @@ class FeatureEngineer:
         df: pd.DataFrame,
         columns: Optional[List[str]] = None,
         lags: Optional[List[int]] = None,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         Create lag features for specified columns.
@@ -63,10 +64,10 @@ class FeatureEngineer:
             DataFrame with original and lag features
         """
         result = df.copy()
-        
+
         if columns is None:
             columns = df.select_dtypes(include=[np.number]).columns.tolist()
-        
+
         if lags is None:
             lags = (config or {}).get("lag_periods", [1, 2, 3, 5, 10, 20])
 
@@ -75,7 +76,7 @@ class FeatureEngineer:
             if col not in df.columns:
                 logger.warning(f"Column {col} not found in DataFrame")
                 continue
-            
+
             for lag in lags:
                 feature_name = f"{col}_lag_{lag}"
                 result[feature_name] = df[col].shift(lag)
@@ -90,7 +91,7 @@ class FeatureEngineer:
         columns: Optional[List[str]] = None,
         windows: Optional[List[int]] = None,
         stats: Optional[List[str]] = None,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         Calculate rolling statistics for specified columns.
@@ -99,7 +100,7 @@ class FeatureEngineer:
             df: DataFrame with time series data
             columns: Columns to calculate stats for (defaults to all numeric)
             windows: List of window sizes (e.g., [5, 10, 20, 50])
-            stats: Statistics to calculate ('mean', 'std', 'min', 'max', 
+            stats: Statistics to calculate ('mean', 'std', 'min', 'max',
                     'quantile_25', 'quantile_75', 'median')
             config: Configuration dictionary (optional)
 
@@ -107,13 +108,13 @@ class FeatureEngineer:
             DataFrame with original and rolling statistics
         """
         result = df.copy()
-        
+
         if columns is None:
             columns = df.select_dtypes(include=[np.number]).columns.tolist()
-        
+
         if windows is None:
             windows = (config or {}).get("rolling_windows", [5, 10, 20, 50])
-        
+
         if stats is None:
             stats = ["mean", "std", "min", "max"]
 
@@ -122,13 +123,13 @@ class FeatureEngineer:
             if col not in df.columns:
                 logger.warning(f"Column {col} not found in DataFrame")
                 continue
-            
+
             for window in windows:
                 rolling = df[col].rolling(window=window, min_periods=1)
-                
+
                 for stat in stats:
                     feature_name = f"{col}_rolling_{stat}_{window}"
-                    
+
                     if stat == "mean":
                         result[feature_name] = rolling.mean()
                     elif stat == "std":
@@ -148,7 +149,7 @@ class FeatureEngineer:
                     else:
                         logger.warning(f"Unknown statistic: {stat}")
                         continue
-                    
+
                     rolling_feature_names.append(feature_name)
 
         logger.info(f"Created {len(rolling_feature_names)} rolling features")
@@ -156,9 +157,7 @@ class FeatureEngineer:
 
     @staticmethod
     def create_calendar_features(
-        df: pd.DataFrame,
-        include_holidays: bool = True,
-        holiday_country: str = "US"
+        df: pd.DataFrame, include_holidays: bool = True, holiday_country: str = "US"
     ) -> pd.DataFrame:
         """
         Create calendar-based features from DatetimeIndex.
@@ -172,35 +171,35 @@ class FeatureEngineer:
             DataFrame with calendar features added
         """
         result = df.copy()
-        
+
         if not isinstance(df.index, pd.DatetimeIndex):
             raise ValueError("DataFrame must have DatetimeIndex")
 
         # Day of week (0=Monday, 6=Sunday)
         result["day_of_week"] = df.index.dayofweek
-        
+
         # Day of month
         result["day_of_month"] = df.index.day
-        
+
         # Month
         result["month"] = df.index.month
-        
+
         # Quarter
         result["quarter"] = df.index.quarter
-        
+
         # Year
         result["year"] = df.index.year
-        
+
         # Week of year
         result["week_of_year"] = df.index.isocalendar().week.values
-        
+
         # Is weekend
         result["is_weekend"] = (df.index.dayofweek >= 5).astype(int)
-        
+
         # Is month start/end
         result["is_month_start"] = df.index.is_month_start.astype(int)
         result["is_month_end"] = df.index.is_month_end.astype(int)
-        
+
         # Is quarter start/end
         result["is_quarter_start"] = df.index.is_quarter_start.astype(int)
         result["is_quarter_end"] = df.index.is_quarter_end.astype(int)
@@ -208,34 +207,29 @@ class FeatureEngineer:
         # Cyclical encoding for day of week
         result["day_of_week_sin"] = np.sin(2 * np.pi * df.index.dayofweek / 7)
         result["day_of_week_cos"] = np.cos(2 * np.pi * df.index.dayofweek / 7)
-        
+
         # Cyclical encoding for month
         result["month_sin"] = np.sin(2 * np.pi * df.index.month / 12)
         result["month_cos"] = np.cos(2 * np.pi * df.index.month / 12)
 
         if include_holidays:
-            result = FeatureEngineer._add_holiday_features(
-                result, holiday_country
-            )
+            result = FeatureEngineer._add_holiday_features(result, holiday_country)
 
         logger.info("Created calendar features")
         return result
 
     @staticmethod
-    def _add_holiday_features(
-        df: pd.DataFrame,
-        country: str = "US"
-    ) -> pd.DataFrame:
+    def _add_holiday_features(df: pd.DataFrame, country: str = "US") -> pd.DataFrame:
         """Add holiday indicator features."""
         result = df.copy()
-        
+
         # Simple holiday detection (major US holidays)
         # For production, use a proper holiday library
         dates = df.index
-        
+
         # Initialize holiday column
         result["is_holiday"] = 0
-        
+
         # Check for common holidays (simplified)
         for date in dates:
             # New Year's Day
@@ -248,11 +242,7 @@ class FeatureEngineer:
             elif date.month == 12 and date.day == 25:
                 result.loc[date, "is_holiday"] = 1
             # Thanksgiving (4th Thursday of November - approximation)
-            elif (
-                date.month == 11
-                and date.weekday() == 3
-                and 22 <= date.day <= 28
-            ):
+            elif date.month == 11 and date.weekday() == 3 and 22 <= date.day <= 28:
                 result.loc[date, "is_holiday"] = 1
 
         # Days until/since holiday (simplified - just weekend proximity)
@@ -266,7 +256,7 @@ class FeatureEngineer:
         dfs: Dict[str, pd.DataFrame],
         price_column: str = "close",
         windows: Optional[List[int]] = None,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         Calculate cross-asset correlation and spread features.
@@ -282,56 +272,54 @@ class FeatureEngineer:
         """
         if len(dfs) < 2:
             raise ValueError("Need at least 2 assets for cross-asset features")
-        
+
         if windows is None:
             windows = (config or {}).get("rolling_windows", [5, 10, 20, 50])
 
         # Align all DataFrames to common index
         asset_names = list(dfs.keys())
         aligned_prices = pd.DataFrame()
-        
+
         for name, df in dfs.items():
             if price_column in df.columns:
                 aligned_prices[name] = df[price_column]
             else:
-                logger.warning(
-                    f"Price column {price_column} not found in {name}"
-                )
+                logger.warning(f"Price column {price_column} not found in {name}")
 
         # Forward fill to handle missing data
         aligned_prices = aligned_prices.ffill()
-        
+
         result = aligned_prices.copy()
 
         # Calculate pairwise correlations
         for i, asset1 in enumerate(asset_names):
-            for asset2 in asset_names[i+1:]:
+            for asset2 in asset_names[i + 1 :]:
                 if asset1 not in aligned_prices.columns:
                     continue
                 if asset2 not in aligned_prices.columns:
                     continue
-                    
+
                 # Spread (difference)
                 result[f"{asset1}_{asset2}_spread"] = (
                     aligned_prices[asset1] - aligned_prices[asset2]
                 )
-                
+
                 # Ratio
-                with np.errstate(divide='ignore', invalid='ignore'):
+                with np.errstate(divide="ignore", invalid="ignore"):
                     ratio = aligned_prices[asset1] / aligned_prices[asset2]
                     ratio = ratio.replace([np.inf, -np.inf], np.nan)
                     result[f"{asset1}_{asset2}_ratio"] = ratio
-                
+
                 # Rolling correlations
                 for window in windows:
-                    corr = aligned_prices[asset1].rolling(window).corr(
-                        aligned_prices[asset2]
+                    corr = (
+                        aligned_prices[asset1]
+                        .rolling(window)
+                        .corr(aligned_prices[asset2])
                     )
                     result[f"{asset1}_{asset2}_corr_{window}"] = corr
 
-        logger.info(
-            f"Created cross-asset features for {len(asset_names)} assets"
-        )
+        logger.info(f"Created cross-asset features for {len(asset_names)} assets")
         return result
 
     @staticmethod
@@ -340,7 +328,7 @@ class FeatureEngineer:
         bid_price_col: str = "bid_price",
         ask_price_col: str = "ask_price",
         bid_size_col: str = "bid_size",
-        ask_size_col: str = "ask_size"
+        ask_size_col: str = "ask_size",
     ) -> pd.DataFrame:
         """
         Calculate basic order book spread and WAP features.
@@ -356,7 +344,7 @@ class FeatureEngineer:
             DataFrame with order book features added
         """
         result = df.copy()
-        
+
         # Check if required columns exist
         required = [bid_price_col, ask_price_col]
         missing = [col for col in required if col not in df.columns]
@@ -368,16 +356,14 @@ class FeatureEngineer:
 
         # Mid Price
         result["mid_price"] = (df[bid_price_col] + df[ask_price_col]) / 2
-        
+
         # Bid-Ask Spread
         result["bid_ask_spread"] = df[ask_price_col] - df[bid_price_col]
-        
+
         # Relative Spread
         # Relative Spread (handle zero mid_price)
         safe_mid_price = result["mid_price"].replace(0, np.nan)
-        result["relative_spread"] = (
-            result["bid_ask_spread"] / safe_mid_price
-        )
+        result["relative_spread"] = result["bid_ask_spread"] / safe_mid_price
 
         # Weighted Average Price (WAP) - if sizes available
         if bid_size_col in df.columns and ask_size_col in df.columns:
@@ -385,8 +371,8 @@ class FeatureEngineer:
             # Avoid division by zero
             safe_total_size = total_size.replace(0, np.nan)
             result["wap"] = (
-                (df[bid_price_col] * df[ask_size_col]) +
-                (df[ask_price_col] * df[bid_size_col])
+                (df[bid_price_col] * df[ask_size_col])
+                + (df[ask_price_col] * df[bid_size_col])
             ) / safe_total_size
             result["wap"] = result["wap"].fillna(result["mid_price"])
 
@@ -398,7 +384,8 @@ class FeatureEngineer:
         df: pd.DataFrame,
         columns: Optional[List[str]] = None,
         periods: Optional[List[int]] = None,
-        log_returns: bool = True
+        log_returns: bool = True,
+        config: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         Calculate returns for specified columns.
@@ -409,26 +396,27 @@ class FeatureEngineer:
             periods: Return periods (e.g., [1, 5, 10] for 1-day, 5-day returns)
             log_returns: Whether to calculate log returns (True)
                 or simple (False).
+            config: Configuration dictionary (optional)
 
         Returns:
             DataFrame with return features added
         """
         result = df.copy()
-        
+
         if columns is None:
             columns = df.select_dtypes(include=[np.number]).columns.tolist()
-        
+
         if periods is None:
-            periods = [1, 5, 10, 20]
+            periods = (config or {}).get("returns_periods", [1, 5, 10, 20])
 
         for col in columns:
             if col not in df.columns:
                 continue
-            
+
             for period in periods:
                 if log_returns:
                     # Log returns: ln(P_t / P_{t-n})
-                    with np.errstate(divide='ignore', invalid='ignore'):
+                    with np.errstate(divide="ignore", invalid="ignore"):
                         returns = np.log(df[col] / df[col].shift(period))
                         returns = returns.replace([np.inf, -np.inf], np.nan)
                     feature_name = f"{col}_log_return_{period}"
@@ -436,7 +424,7 @@ class FeatureEngineer:
                     # Simple returns: (P_t - P_{t-n}) / P_{t-n}
                     returns = df[col].pct_change(periods=period)
                     feature_name = f"{col}_return_{period}"
-                
+
                 result[feature_name] = returns
 
         return result
@@ -450,7 +438,7 @@ class FeatureEngineer:
         include_rolling: bool = True,
         include_calendar: bool = True,
         include_returns: bool = True,
-        include_order_book: bool = False
+        include_order_book: bool = False,
     ) -> pd.DataFrame:
         """
         Apply all feature engineering steps.
@@ -471,35 +459,29 @@ class FeatureEngineer:
             DataFrame with all engineered features
         """
         result = df.copy()
-        
+
         if price_columns is None:
-            price_columns = df.select_dtypes(
-                include=[np.number]
-            ).columns.tolist()
-            
+            price_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+
         if volume_columns is None:
             volume_columns = []
-            
+
         # Combine for operations that apply to both
         all_numeric_columns = list(set(price_columns + volume_columns))
 
         if include_returns:
             result = self.calculate_returns(result, columns=price_columns)
-        
+
         if include_lags:
             result = self.create_lag_features(
-                result, 
-                columns=all_numeric_columns,
-                config=self.config
+                result, columns=all_numeric_columns, config=self.config
             )
-        
+
         if include_rolling:
             result = self.calculate_rolling_stats(
-                result, 
-                columns=all_numeric_columns,
-                config=self.config
+                result, columns=all_numeric_columns, config=self.config
             )
-        
+
         if include_calendar and isinstance(df.index, pd.DatetimeIndex):
             result = self.create_calendar_features(result)
 
@@ -511,38 +493,49 @@ class FeatureEngineer:
             df, result, price_columns
         )
 
-        logger.info(
-            f"Total features created: {len(result.columns) - len(df.columns)}"
-        )
+        logger.info(f"Total features created: {len(result.columns) - len(df.columns)}")
         return result
 
     @staticmethod
     def _create_feature_definitions(
-        original_df: pd.DataFrame,
-        result_df: pd.DataFrame,
-        price_columns: List[str]
+        original_df: pd.DataFrame, result_df: pd.DataFrame, price_columns: List[str]
     ) -> FeatureDefinitions:
         """Create feature definitions metadata."""
         new_cols = set(result_df.columns) - set(original_df.columns)
-        
+
         lag_features = [c for c in new_cols if "_lag_" in c]
         rolling_features = [c for c in new_cols if "_rolling_" in c]
         calendar_features = [
-            c for c in new_cols 
-            if c in [
-                "day_of_week", "day_of_month", "month", "quarter", "year",
-                "week_of_year", "is_weekend", "is_month_start", "is_month_end",
-                "is_quarter_start", "is_quarter_end", "day_of_week_sin",
-                "day_of_week_cos", "month_sin", "month_cos", "is_holiday",
-                "days_to_weekend", "days_from_weekend"
+            c
+            for c in new_cols
+            if c
+            in [
+                "day_of_week",
+                "day_of_month",
+                "month",
+                "quarter",
+                "year",
+                "week_of_year",
+                "is_weekend",
+                "is_month_start",
+                "is_month_end",
+                "is_quarter_start",
+                "is_quarter_end",
+                "day_of_week_sin",
+                "day_of_week_cos",
+                "month_sin",
+                "month_cos",
+                "is_holiday",
+                "days_to_weekend",
+                "days_from_weekend",
             ]
         ]
         cross_asset_features = [
-            c for c in new_cols 
-            if "_spread" in c or "_ratio" in c or "_corr_" in c
+            c for c in new_cols if "_spread" in c or "_ratio" in c or "_corr_" in c
         ]
         order_book_features = [
-            c for c in new_cols
+            c
+            for c in new_cols
             if c in ["mid_price", "bid_ask_spread", "relative_spread", "wap"]
         ]
 
@@ -557,7 +550,7 @@ class FeatureEngineer:
                 "price_columns": price_columns,
                 "total_features": len(result_df.columns),
                 "new_features": len(new_cols),
-            }
+            },
         )
 
     def get_feature_definitions(self) -> Optional[FeatureDefinitions]:

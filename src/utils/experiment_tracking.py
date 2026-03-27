@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 import json
 import logging
 import os
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 try:
     import mlflow
     from mlflow.tracking import MlflowClient
+
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
@@ -23,6 +25,7 @@ except ImportError:
 @dataclass
 class ExperimentRun:
     """Container for experiment run information."""
+
     run_id: str
     experiment_name: str
     parameters: Dict[str, Any] = field(default_factory=dict)
@@ -58,7 +61,9 @@ class ExperimentRun:
             artifacts=data.get("artifacts", []),
             status=data.get("status", "unknown"),
             start_time=datetime.fromisoformat(data["start_time"]),
-            end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
+            end_time=datetime.fromisoformat(data["end_time"])
+            if data.get("end_time")
+            else None,
             tags=data.get("tags", {}),
         )
 
@@ -66,7 +71,7 @@ class ExperimentRun:
 class ExperimentTracker:
     """
     Experiment tracking with MLflow integration.
-    
+
     Provides a unified interface for tracking experiments, logging parameters,
     metrics, and artifacts. Falls back to local file-based tracking if MLflow
     is not available.
@@ -94,17 +99,18 @@ class ExperimentTracker:
         self.artifact_location = artifact_location or "experiments/artifacts"
         self._current_run: Optional[ExperimentRun] = None
         self._mlflow_run = None
-        
+
         # Monitoring
         self.enable_monitoring = enable_monitoring
         if self.enable_monitoring:
             from .monitoring import SystemMonitor, AlertManager, AlertConfig
+
             self._monitor = SystemMonitor(interval_seconds=10.0)
             self._alert_manager = self._monitor._alert_manager
         else:
             self._monitor = None
             self._alert_manager = None
-        
+
         # Initialize MLflow if available
         if MLFLOW_AVAILABLE:
             mlflow.set_tracking_uri(self.tracking_uri)
@@ -120,21 +126,25 @@ class ExperimentTracker:
         else:
             self._experiment_id = None
             # Create local tracking directory
-            Path(self.tracking_uri).mkdir(parents=True, exist_ok=True)
+            self._default_local_tracking_dir = Path("experiments")
+            self._default_local_tracking_dir.mkdir(parents=True, exist_ok=True)
             Path(self.artifact_location).mkdir(parents=True, exist_ok=True)
 
-    def add_alert(self, metric_name: str, threshold: float, operator: str = '>') -> None:
+    def add_alert(
+        self, metric_name: str, threshold: float, operator: str = ">"
+    ) -> None:
         """Add a performance alert."""
         if self._alert_manager:
             from .monitoring import AlertConfig
+
             self._alert_manager.add_alert(
                 f"{metric_name}_alert",
                 AlertConfig(
                     metric_name=metric_name,
                     threshold=threshold,
                     operator=operator,
-                    message_template=f"Performance alert: {{metric}} {{value:.4f}} {operator} {{threshold}}"
-                )
+                    message_template=f"Performance alert: {{metric}} {{value:.4f}} {operator} {{threshold}}",
+                ),
             )
 
     def start_run(
@@ -153,7 +163,7 @@ class ExperimentTracker:
             ExperimentRun instance
         """
         tags = tags or {}
-        
+
         if MLFLOW_AVAILABLE:
             self._mlflow_run = mlflow.start_run(
                 experiment_id=self._experiment_id,
@@ -170,17 +180,20 @@ class ExperimentTracker:
             tags=tags,
             status="running",
         )
-        
+
         # Start monitoring
         if self._monitor:
+
             def monitor_callback(usage):
                 # Log system metrics
-                self.log_metrics({
-                    "system_cpu_percent": usage.cpu_percent,
-                    "system_memory_percent": usage.memory_percent,
-                    "system_memory_gb": usage.memory_used_gb
-                })
-                
+                self.log_metrics(
+                    {
+                        "system_cpu_percent": usage.cpu_percent,
+                        "system_memory_percent": usage.memory_percent,
+                        "system_memory_gb": usage.memory_used_gb,
+                    }
+                )
+
             self._monitor.start(callback=monitor_callback)
 
         logger.info(f"Started run {run_id} for experiment {self.experiment_name}")
@@ -205,10 +218,9 @@ class ExperimentTracker:
             if history:
                 max_cpu = max(h.cpu_percent for h in history)
                 max_mem = max(h.memory_percent for h in history)
-                self.log_metrics({
-                    "max_cpu_percent": max_cpu,
-                    "max_memory_percent": max_mem
-                })
+                self.log_metrics(
+                    {"max_cpu_percent": max_cpu, "max_memory_percent": max_mem}
+                )
 
         self._current_run.status = status
         self._current_run.end_time = datetime.now()
@@ -252,7 +264,9 @@ class ExperimentTracker:
         """
         self.log_params({key: value})
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(
+        self, metrics: Dict[str, float], step: Optional[int] = None
+    ) -> None:
         """
         Log metrics for the current run.
 
@@ -264,7 +278,7 @@ class ExperimentTracker:
             raise RuntimeError("No active run. Call start_run() first.")
 
         self._current_run.metrics.update(metrics)
-        
+
         # Check alerts
         if self._alert_manager:
             for k, v in metrics.items():
@@ -286,7 +300,9 @@ class ExperimentTracker:
         """
         self.log_metrics({key: value}, step=step)
 
-    def log_artifact(self, local_path: str, artifact_path: Optional[str] = None) -> None:
+    def log_artifact(
+        self, local_path: str, artifact_path: Optional[str] = None
+    ) -> None:
         """
         Log an artifact file.
 
@@ -303,7 +319,6 @@ class ExperimentTracker:
             mlflow.log_artifact(local_path, artifact_path)
         else:
             # Copy to local artifact directory
-            import shutil
             dest_dir = Path(self.artifact_location) / self._current_run.run_id
             if artifact_path:
                 dest_dir = dest_dir / artifact_path
@@ -329,14 +344,18 @@ class ExperimentTracker:
 
         # Log model metadata as params
         if hasattr(model_artifact, "hyperparameters"):
-            self.log_params({
-                f"{artifact_name}_hyperparams": json.dumps(model_artifact.hyperparameters)
-            })
+            self.log_params(
+                {
+                    f"{artifact_name}_hyperparams": json.dumps(
+                        model_artifact.hyperparameters
+                    )
+                }
+            )
 
         # Log training metrics
         if hasattr(model_artifact, "training_metrics"):
             prefixed_metrics = {
-                f"{artifact_name}_train_{k}": v 
+                f"{artifact_name}_train_{k}": v
                 for k, v in model_artifact.training_metrics.items()
             }
             self.log_metrics(prefixed_metrics)
@@ -344,7 +363,7 @@ class ExperimentTracker:
         # Log validation metrics
         if hasattr(model_artifact, "validation_metrics"):
             prefixed_metrics = {
-                f"{artifact_name}_val_{k}": v 
+                f"{artifact_name}_val_{k}": v
                 for k, v in model_artifact.validation_metrics.items()
             }
             self.log_metrics(prefixed_metrics)
@@ -388,19 +407,21 @@ class ExperimentTracker:
                     metrics=run.data.metrics,
                     status=run.info.status,
                     start_time=datetime.fromtimestamp(run.info.start_time / 1000),
-                    end_time=datetime.fromtimestamp(run.info.end_time / 1000) if run.info.end_time else None,
-                    tags=run.data.tags,
-                )
-            except Exception as e:
-                logger.error(f"Failed to get run {run_id}: {e}")
-                return None
-        else:
-            # Load from local file
-            run_file = Path(self.tracking_uri) / f"{run_id}.json"
-            if run_file.exists():
-                with open(run_file, "r") as f:
-                    return ExperimentRun.from_dict(json.load(f))
-            return None
+                    end_time=datetime.fromtimestamp(run.info.end_time / 1000)
+                    if run.info.end_time
+                     else None,
+                     tags=run.data.tags,
+                 )
+             except Exception as e:
+                 logger.error(f"Failed to get run {run_id}: {e}")
+                 return None
+         else:
+             # Load from local file
+             run_file = self._default_local_tracking_dir / f"{run_id}.json"
+             if run_file.exists():
+                 with open(run_file, "r") as f:
+                     return ExperimentRun.from_dict(json.load(f))
+             return None
 
     def list_runs(
         self,
@@ -428,42 +449,48 @@ class ExperimentTracker:
                     filter_string=filter_string,
                 )
                 for run in mlflow_runs:
-                    runs.append(ExperimentRun(
-                        run_id=run.info.run_id,
-                        experiment_name=self.experiment_name,
-                        parameters=run.data.params,
-                        metrics=run.data.metrics,
-                        status=run.info.status,
-                        start_time=datetime.fromtimestamp(run.info.start_time / 1000),
-                        end_time=datetime.fromtimestamp(run.info.end_time / 1000) if run.info.end_time else None,
-                        tags=run.data.tags,
-                    ))
+                    runs.append(
+                        ExperimentRun(
+                            run_id=run.info.run_id,
+                            experiment_name=self.experiment_name,
+                            parameters=run.data.params,
+                            metrics=run.data.metrics,
+                            status=run.info.status,
+                            start_time=datetime.fromtimestamp(
+                                run.info.start_time / 1000
+                            ),
+                            end_time=datetime.fromtimestamp(run.info.end_time / 1000)
+                            if run.info.end_time
+                            else None,
+                            tags=run.data.tags,
+                        )
+                    )
             except Exception as e:
                 logger.error(f"Failed to list runs: {e}")
-        else:
-            # Load from local files
-            tracking_dir = Path(self.tracking_uri)
-            for run_file in tracking_dir.glob("*.json"):
-                with open(run_file, "r") as f:
-                    runs.append(ExperimentRun.from_dict(json.load(f)))
-                if len(runs) >= max_results:
-                    break
+         else:
+             # Load from local files
+             tracking_dir = self._default_local_tracking_dir
+             for run_file in tracking_dir.glob("*.json"):
+                 with open(run_file, "r") as f:
+                     runs.append(ExperimentRun.from_dict(json.load(f)))
+                 if len(runs) >= max_results:
+                     break
 
         return runs
 
     def cleanup_experiments(self, older_than_days: int = 90) -> int:
         """
         Clean up old experiment runs.
-        
+
         Args:
             older_than_days: Delete runs older than this many days
-            
+
         Returns:
             Number of deleted runs
         """
         cutoff_date = datetime.now() - timedelta(days=older_than_days)
         deleted_count = 0
-        
+
         if MLFLOW_AVAILABLE and self._experiment_id:
             client = MlflowClient()
             runs = self.list_runs(max_results=1000)
@@ -474,10 +501,10 @@ class ExperimentTracker:
                         deleted_count += 1
                     except Exception as e:
                         logger.warning(f"Failed to delete run {run.run_id}: {e}")
-        else:
-            # Local cleanup
-            tracking_dir = Path(self.tracking_uri)
-            for run_file in tracking_dir.glob("*.json"):
+         else:
+             # Local cleanup
+             tracking_dir = self._default_local_tracking_dir
+             for run_file in tracking_dir.glob("*.json"):
                 try:
                     with open(run_file, "r") as f:
                         run_data = json.load(f)
@@ -487,23 +514,24 @@ class ExperimentTracker:
                         # Clean up artifacts if local
                         artifact_dir = Path(self.artifact_location) / run_data["run_id"]
                         if artifact_dir.exists():
-                            import shutil
                             shutil.rmtree(artifact_dir)
-                        deleted_count += 1
+                    deleted_count += 1
                 except Exception as e:
                     logger.warning(f"Failed to cleanup local run {run_file}: {e}")
-                    
-        logger.info(f"Cleaned up {deleted_count} experiments older than {older_than_days} days")
+
+        logger.info(
+            f"Cleaned up {deleted_count} experiments older than {older_than_days} days"
+        )
         return deleted_count
 
-    def _save_run_locally(self) -> None:
-        """Save current run to local file."""
-        if self._current_run is None:
-            return
-
-        run_file = Path(self.tracking_uri) / f"{self._current_run.run_id}.json"
-        with open(run_file, "w") as f:
-            json.dump(self._current_run.to_dict(), f, indent=2)
+     def _save_run_locally(self) -> None:
+         """Save current run to local file."""
+         if self._current_run is None:
+             return
+ 
+         run_file = self._default_local_tracking_dir / f"{self._current_run.run_id}.json"
+         with open(run_file, "w") as f:
+             json.dump(self._current_run.to_dict(), f, indent=2)
 
     @property
     def current_run(self) -> Optional[ExperimentRun]:
