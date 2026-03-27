@@ -4,11 +4,13 @@ Provides lag features, rolling statistics, calendar features, and cross-asset
 calculations for financial time series forecasting.
 """
 
-from typing import List, Optional, Dict, Any
-import pandas as pd
-import numpy as np
 import logging
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+import holidays
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +118,9 @@ class FeatureEngineer:
             windows = (config or {}).get("rolling_windows", [5, 10, 20, 50])
 
         if stats is None:
-            stats = ["mean", "std", "min", "max"]
+            stats = (config or {}).get("rolling_stats")
+            if not stats:  # falls back if None or empty list
+                stats = ["mean", "std", "min", "max"]
 
         rolling_feature_names = []
         for col in columns:
@@ -220,34 +224,54 @@ class FeatureEngineer:
 
     @staticmethod
     def _add_holiday_features(df: pd.DataFrame, country: str = "US") -> pd.DataFrame:
-        """Add holiday indicator features."""
+        """Add holiday indicator features using the holidays library."""
         result = df.copy()
 
-        # Simple holiday detection (major US holidays)
-        # For production, use a proper holiday library
-        dates = df.index
+        # Use the holidays library for country-specific holidays
+        country_holidays = holidays.CountryHoliday(country)
 
         # Initialize holiday column
-        result["is_holiday"] = 0
+        result["is_holiday"] = result.index.map(
+            lambda x: 1 if x in country_holidays else 0
+        )
 
-        # Check for common holidays (simplified)
-        for date in dates:
-            # New Year's Day
-            if date.month == 1 and date.day == 1:
-                result.loc[date, "is_holiday"] = 1
-            # Independence Day (US)
-            elif date.month == 7 and date.day == 4:
-                result.loc[date, "is_holiday"] = 1
-            # Christmas
-            elif date.month == 12 and date.day == 25:
-                result.loc[date, "is_holiday"] = 1
-            # Thanksgiving (4th Thursday of November - approximation)
-            elif date.month == 11 and date.weekday() == 3 and 22 <= date.day <= 28:
-                result.loc[date, "is_holiday"] = 1
+        # Calculate days until/since nearest holiday
+        holiday_dates = result[result["is_holiday"] == 1].index
+        if not holiday_dates.empty:
+            # Ensure the index is a DatetimeIndex for date calculations
+            if not isinstance(result.index, pd.DatetimeIndex):
+                result.index = pd.to_datetime(result.index)
 
-        # Days until/since holiday (simplified - just weekend proximity)
-        result["days_to_weekend"] = (5 - df.index.dayofweek) % 7
-        result["days_from_weekend"] = df.index.dayofweek % 7
+            # Calculate days to nearest future holiday
+            def days_to_next_holiday(date):
+                future_holidays = holiday_dates[holiday_dates >= date]
+                if not future_holidays.empty:
+                    return (future_holidays.min() - date).days
+                return np.inf  # No future holidays
+
+            # Calculate days from nearest past holiday
+            def days_from_last_holiday(date):
+                past_holidays = holiday_dates[holiday_dates <= date]
+                if not past_holidays.empty:
+                    return (date - past_holidays.max()).days
+                return np.inf  # No past holidays
+
+            result["days_to_nearest_holiday"] = result.index.map(days_to_next_holiday)
+            result["days_from_nearest_holiday"] = result.index.map(
+                days_from_last_holiday
+            )
+
+            # Replace infinity with NaN or a large number if preferred
+            result["days_to_nearest_holiday"] = result[
+                "days_to_nearest_holiday"
+            ].replace(np.inf, np.nan)
+            result["days_from_nearest_holiday"] = result[
+                "days_from_nearest_holiday"
+            ].replace(np.inf, np.nan)
+
+        else:
+            result["days_to_nearest_holiday"] = np.nan
+            result["days_from_nearest_holiday"] = np.nan
 
         return result
 
@@ -470,8 +494,9 @@ class FeatureEngineer:
         all_numeric_columns = list(set(price_columns + volume_columns))
 
         if include_returns:
-            result = self.calculate_returns(result, columns=price_columns)
-
+            result = self.calculate_returns(
+                result, columns=price_columns, config=self.config
+            )
         if include_lags:
             result = self.create_lag_features(
                 result, columns=all_numeric_columns, config=self.config

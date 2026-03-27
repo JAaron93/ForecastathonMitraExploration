@@ -3,15 +3,18 @@ Serialization utilities for the forecasting pipeline.
 Handles JSON, Parquet, Pickle, and custom struct serialization.
 """
 
-import json
-import joblib
-import logging
 import hmac
-from pathlib import Path
-from typing import Any, Optional, Union, TypeVar, Dict, List
+import io
+import json
+import logging
 from datetime import datetime
-import pandas as pd
+from pathlib import Path
+from typing import Any, Dict, List, Optional, TypeVar, Union
+
+import joblib
 import numpy as np
+import pandas as pd
+
 from src.data.structs import TimeSeriesData
 
 logger = logging.getLogger(__name__)
@@ -32,11 +35,7 @@ class DateTimeEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-def save_json(
-    data: Union[Dict[str, Any], List[Any], str, int, float, bool, None],
-    path: Union[str, Path],
-    **kwargs,
-) -> None:
+def save_json(data: Any, path: Union[str, Path], **kwargs) -> None:
     """Save data to JSON with datetime support."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
@@ -70,6 +69,9 @@ def load_joblib(
     """
     Load object from joblib with optional HMAC signature verification.
 
+    The TypeVar `T` will be inferred as `Any` by static type checkers unless an
+    explicit type hint is provided by the caller (e.g., `model: MyType = load_joblib(...)`).
+
     Args:
         path: Path to the joblib file
         signature: Optional HMAC signature to verify (hex string)
@@ -86,24 +88,25 @@ def load_joblib(
     if not Path(path).exists():
         raise FileNotFoundError(f"Joblib file not found: {path}")
 
+    # Read file contents once for both verification and loading
+    with open(path, "rb") as f:
+        file_data = f.read()
+
     # If signature verification is requested
     if signature is not None or hmac_key is not None:
         if signature is None or hmac_key is None:
             raise ValueError(
                 "Both 'signature' and 'hmac_key' must be provided for verification"
             )
-        # Read file contents
-        with open(path, "rb") as f:
-            file_data = f.read()
 
         # Verify HMAC
         expected_signature = hmac.new(hmac_key, file_data, "sha256").hexdigest()
         if not hmac.compare_digest(expected_signature, signature):
             raise ValueError(f"HMAC signature verification failed for {path}")
 
-    # If no signature verification or verification passed, proceed with loading
+    # If no signature verification or verification passed, proceed with loading from in-memory data
     try:
-        return joblib.load(path)
+        return joblib.load(io.BytesIO(file_data))
     except Exception as e:
         raise ValueError(f"Failed to load joblib file: {str(e)}")
 

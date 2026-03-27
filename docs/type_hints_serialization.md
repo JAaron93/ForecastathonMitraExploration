@@ -8,7 +8,7 @@ The serialization module provides utilities for saving and loading data in vario
 
 ## Type Hinting Improvements
 
-### 1. Generic Type Variables
+### 1. Generic Type Variables and Their Limitations
 
 ```python
 from typing import TypeVar
@@ -16,7 +16,9 @@ from typing import TypeVar
 T = TypeVar('T')
 ```
 
-**Usage**: The `T` type variable is used in the `load_joblib` function to provide generic type inference:
+**Important Limitation**: An unbounded `TypeVar` (like `T` above) does not provide real type narrowing. Type checkers (like mypy) will treat it as equivalent to `Any` or `object` and cannot infer concrete types from its usage. For example, in the `load_joblib` function, the return type `T` cannot be inferred by the type checker without additional help.
+
+**Usage**: The `T` type variable is used in the `load_joblib` function to provide a generic return type, but due to being unbounded, it does not infer concrete types:
 
 ```python
 def load_joblib(
@@ -32,11 +34,63 @@ def load_joblib(
 
 ```python
 # Without explicit type annotation
-model = load_joblib('model.joblib')  # Type: Any (inferred as T)
+model = load_joblib('model.joblib')  # Type: Any (because T is unbounded)
 
-# With explicit type annotation
+# With explicit type annotation (required for concrete type)
 model: RandomForestClassifier = load_joblib('model.joblib')  # Type: RandomForestClassifier
 ```
+
+**Recommended Alternatives for Real Type Inference**:
+
+To achieve real type inference (where the type checker can narrow the type based on usage), consider one of the following:
+
+1. **Bound TypeVar**: If there is a common base class for the expected types, bind the TypeVar to that base.
+   ```python
+   from typing import TypeVar
+   from sklearn.base import BaseEstimator  # Example base class
+
+   T = TypeVar('T', bound=BaseEstimator)
+
+   def load_joblib(path: Union[str, Path]) -> T:
+       # Implementation
+   ```
+   Now, if you load a `RandomForestClassifier` (which is a `BaseEstimator`), the type checker will know it's a `BaseEstimator` and allow accessing its methods.
+
+2. **Overloading**: Use `@overload` to define multiple return types for specific cases.
+   ```python
+   from typing import overload, Union, Literal, Any
+   from sklearn.ensemble import RandomForestClassifier
+   from sklearn.svm import SVC
+
+   @overload
+   def load_joblib(path: Literal['random_forest_model.joblib']) -> RandomForestClassifier: ...
+   @overload
+   def load_joblib(path: Literal['svm_model.joblib']) -> SVC: ...
+   @overload
+   def load_joblib(path: str) -> Any: ...  # Fallback
+
+   def load_joblib(path: Union[str, Path]) -> Any:
+       # Implementation
+   ```
+   Note: This requires knowing the specific paths or using other parameters to differentiate.
+
+3. **Type Parameter for Class Objects**: If you are loading class objects (not instances), accept a `Type[T]` parameter.
+   ```python
+   from typing import Type, TypeVar
+   T = TypeVar('T')
+
+   def load_joblib_class(path: Union[str, Path], cls: Type[T]) -> T:
+       # Implementation: load and return an instance of cls
+   ```
+   Then, when calling, you pass the class: `model = load_joblib_class('model.joblib', RandomForestClassifier)`
+
+4. **Explicit Annotation or Cast**: Document that without the above, users must provide explicit type annotations or use `cast()` to help the type checker.
+   ```python
+   from typing import cast
+   model = cast(RandomForestClassifier, load_joblib('model.joblib'))
+   ```
+
+**Note**: In the current codebase, the `load_joblib` function uses an unbounded `TypeVar`. Therefore, the examples showing `model: RandomForestClassifier = load_joblib('model.joblib')` are correct in that they work, but the type checker cannot verify the assignment without the annotation. The annotation is necessary for type safety.
 
 ### 2. Union Types for Flexible Input
 
@@ -476,7 +530,6 @@ def save_timeseries_data(data: TimeSeriesData, path: Union[str, Path]) -> None:
 
 ```python
 # Good: Comprehensive docstrings
-
 def load_joblib(
     path: Union[str, Path], 
     signature: Optional[str] = None, 

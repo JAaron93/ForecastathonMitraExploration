@@ -98,6 +98,7 @@ class TestConfigManagerProperties:
 
         # Deep copy to avoid mutating the strategy input
         config_copy = json.loads(json.dumps(config))
+        original_config_snapshot = json.dumps(config_copy, sort_keys=True)
 
         # set_value returns a new config dict; the original should remain unchanged
         new_config = self.manager.set_value(config_copy, path, value)

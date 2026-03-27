@@ -409,19 +409,19 @@ class ExperimentTracker:
                     start_time=datetime.fromtimestamp(run.info.start_time / 1000),
                     end_time=datetime.fromtimestamp(run.info.end_time / 1000)
                     if run.info.end_time
-                     else None,
-                     tags=run.data.tags,
-                 )
-             except Exception as e:
-                 logger.error(f"Failed to get run {run_id}: {e}")
-                 return None
-         else:
-             # Load from local file
-             run_file = self._default_local_tracking_dir / f"{run_id}.json"
-             if run_file.exists():
-                 with open(run_file, "r") as f:
-                     return ExperimentRun.from_dict(json.load(f))
-             return None
+                    else None,
+                    tags=run.data.tags,
+                )
+            except Exception as e:
+                logger.error(f"Failed to get run {run_id}: {e}")
+                return None
+        else:
+            # Load from local file
+            run_file = self._default_local_tracking_dir / f"{run_id}.json"
+            if run_file.exists():
+                with open(run_file, "r") as f:
+                    return ExperimentRun.from_dict(json.load(f))
+            return None
 
     def list_runs(
         self,
@@ -467,14 +467,14 @@ class ExperimentTracker:
                     )
             except Exception as e:
                 logger.error(f"Failed to list runs: {e}")
-         else:
-             # Load from local files
-             tracking_dir = self._default_local_tracking_dir
-             for run_file in tracking_dir.glob("*.json"):
-                 with open(run_file, "r") as f:
-                     runs.append(ExperimentRun.from_dict(json.load(f)))
-                 if len(runs) >= max_results:
-                     break
+        else:
+            # Load from local files
+            tracking_dir = self._default_local_tracking_dir
+            for run_file in tracking_dir.glob("*.json"):
+                with open(run_file, "r") as f:
+                    runs.append(ExperimentRun.from_dict(json.load(f)))
+                if len(runs) >= max_results:
+                    break
 
         return runs
 
@@ -501,10 +501,10 @@ class ExperimentTracker:
                         deleted_count += 1
                     except Exception as e:
                         logger.warning(f"Failed to delete run {run.run_id}: {e}")
-         else:
-             # Local cleanup
-             tracking_dir = self._default_local_tracking_dir
-             for run_file in tracking_dir.glob("*.json"):
+        else:
+            # Local cleanup
+            tracking_dir = self._default_local_tracking_dir
+            for run_file in tracking_dir.glob("*.json"):
                 try:
                     with open(run_file, "r") as f:
                         run_data = json.load(f)
@@ -524,14 +524,14 @@ class ExperimentTracker:
         )
         return deleted_count
 
-     def _save_run_locally(self) -> None:
-         """Save current run to local file."""
-         if self._current_run is None:
-             return
- 
-         run_file = self._default_local_tracking_dir / f"{self._current_run.run_id}.json"
-         with open(run_file, "w") as f:
-             json.dump(self._current_run.to_dict(), f, indent=2)
+    def _save_run_locally(self) -> None:
+        """Save current run to local file."""
+        if self._current_run is None:
+            return
+
+        run_file = self._default_local_tracking_dir / f"{self._current_run.run_id}.json"
+        with open(run_file, "w") as f:
+            json.dump(self._current_run.to_dict(), f, indent=2)
 
     @property
     def current_run(self) -> Optional[ExperimentRun]:

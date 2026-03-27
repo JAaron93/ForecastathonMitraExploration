@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ValidationResult:
     """Result of schema validation."""
+
     is_valid: bool
     errors: List[str]
     warnings: List[str]
@@ -39,9 +40,7 @@ class DataLoader:
             self.log_dir.mkdir(parents=True, exist_ok=True)
 
     def load_parquet(
-        self,
-        path: str,
-        schema: Optional[Dict[str, str]] = None
+        self, path: str, schema: Optional[Dict[str, str]] = None
     ) -> pd.DataFrame:
         """
         Load data from a Parquet file with optional schema validation.
@@ -88,7 +87,7 @@ class DataLoader:
         schema: Optional[Dict[str, str]] = None,
         extension: str = "parquet",
         strict: bool = False,
-        status: Optional[Dict[str, Any]] = None
+        status: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, pd.DataFrame]:
         """
         Load multiple assets from a base directory.
@@ -123,9 +122,7 @@ class DataLoader:
         loaded_assets = {}
         if status is not None:
             if not isinstance(status, dict):
-                raise TypeError(
-                    f"status must be a dict, got {type(status).__name__}"
-                )
+                raise TypeError(f"status must be a dict, got {type(status).__name__}")
 
             if "loaded_assets" in status:
                 if not isinstance(status["loaded_assets"], list):
@@ -155,9 +152,7 @@ class DataLoader:
                 logger.info(f"Successfully loaded asset: {asset}")
             except FileNotFoundError as e:
                 if strict:
-                    error_msg = (
-                        f"Strict mode: Aborting load due to missing file for asset {asset}: {e}"
-                    )
+                    error_msg = f"Strict mode: Aborting load due to missing file for asset {asset}: {e}"
                     logger.error(error_msg)
                     raise
                 logger.error(f"File not found for asset {asset}: {e}")
@@ -169,9 +164,7 @@ class DataLoader:
                     status["failed_assets"][asset] = error_info
             except pd.errors.ParserError as e:
                 if strict:
-                    error_msg = (
-                        f"Strict mode: Aborting load due to parsing error for asset {asset}: {e}"
-                    )
+                    error_msg = f"Strict mode: Aborting load due to parsing error for asset {asset}: {e}"
                     logger.error(error_msg)
                     raise
                 logger.error(f"Parsing error for asset {asset}: {e}")
@@ -183,9 +176,7 @@ class DataLoader:
                     status["failed_assets"][asset] = error_info
             except OSError as e:
                 if strict:
-                    error_msg = (
-                        f"Strict mode: Aborting load due to OS error for asset {asset}: {e}"
-                    )
+                    error_msg = f"Strict mode: Aborting load due to OS error for asset {asset}: {e}"
                     logger.error(error_msg)
                     raise
                 logger.error(f"OS error for asset {asset}: {e}")
@@ -224,8 +215,7 @@ class DataLoader:
         return loaded_assets
 
     def load_from_config(
-        self,
-        data_sources_config: Dict[str, Any]
+        self, data_sources_config: Dict[str, Any]
     ) -> Dict[str, Dict[str, pd.DataFrame]]:
         """
         Load all data sources based on configuration.
@@ -255,9 +245,7 @@ class DataLoader:
         return all_data
 
     def validate_schema(
-        self,
-        df: pd.DataFrame,
-        schema: Dict[str, str]
+        self, df: pd.DataFrame, schema: Dict[str, str]
     ) -> ValidationResult:
         """
         Validate DataFrame against expected schema.
@@ -333,10 +321,7 @@ class DataLoader:
         return False
 
     def log_validation_result(
-        self,
-        result: ValidationResult,
-        run_id: str,
-        source_path: str
+        self, result: ValidationResult, run_id: str, source_path: str
     ) -> None:
         """Log validation result to file."""
         if not self.log_dir:
