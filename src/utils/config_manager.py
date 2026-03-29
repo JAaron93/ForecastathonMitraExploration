@@ -152,17 +152,3 @@ class ConfigManager:
             
         current[keys[-1]] = value
         return new_config
-
-    def update_config(self, config: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Update configuration with a dictionary of changes.
-        This is an alias for merge_configs but implies modifying usage.
-        
-        Args:
-            config: Base configuration
-            updates: Dictionary of updates
-            
-        Returns:
-            Updated configuration (new dictionary)
-        """
-        return self.merge_configs(config, updates)

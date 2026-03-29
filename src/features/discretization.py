@@ -8,13 +8,6 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 
-@dataclass
-class DiscretizationResult:
-    """Container for discretization results."""
-    labels: pd.Series
-    bins: np.ndarray
-    label_map: Dict[int, str]
-
 class LabelDiscretizer:
     """
     Discretizes continuous variables into discrete labels.

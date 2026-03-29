@@ -18,7 +18,6 @@ class PortfolioUtility:
         self,
         signal: TradingSignal,
         current_capital: float,
-        risk_per_trade: float = 0.02,
         max_position_size: float = 0.2
     ) -> float:
         """
@@ -95,47 +94,3 @@ class PortfolioUtility:
         
         return df
 
-    def calculate_performance_metrics(self, returns: pd.Series) -> Dict[str, float]:
-        """
-        Calculate standard performance metrics.
-        
-        Args:
-            returns: Series of period returns
-            
-        Returns:
-            Dictionary of metrics
-        """
-        if returns.empty:
-            return {}
-            
-        # Drop NaNs
-        r = returns.dropna()
-        if r.empty:
-            return {}
-
-        total_return = (1 + r).prod() - 1
-        mean_return = r.mean()
-        std_return = r.std()
-        
-        annual_factor = 252 # Daily assumption
-        
-        annualized_return = mean_return * annual_factor
-        annualized_vol = std_return * np.sqrt(annual_factor)
-        
-        sharpe_ratio = 0.0
-        if annualized_vol > 0:
-            sharpe_ratio = annualized_return / annualized_vol
-            
-        # Max Drawdown
-        cum_ret = (1 + r).cumprod()
-        peak = cum_ret.cummax()
-        drawdown = (cum_ret - peak) / peak
-        max_drawdown = drawdown.min()
-        
-        return {
-            "total_return": total_return,
-            "annualized_return": annualized_return,
-            "annualized_volatility": annualized_vol,
-            "sharpe_ratio": sharpe_ratio,
-            "max_drawdown": max_drawdown
-        }

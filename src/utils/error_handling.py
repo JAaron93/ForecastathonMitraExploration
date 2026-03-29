@@ -3,11 +3,10 @@
 import functools
 import logging
 import time
-import inspect
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +75,6 @@ class RecoveryContext:
         Create context from an exception.
         Captures locals from the frame where exception occurred.
         """
-        tb = traceback.extract_tb(exc.__traceback__)
         stack_trace = "".join(traceback.format_tb(exc.__traceback__))
         
         # Capture locals from the last frame

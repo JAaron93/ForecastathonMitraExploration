@@ -116,6 +116,8 @@ def load_joblib(
 
 def save_parquet(df: pd.DataFrame, path: Union[str, Path], **kwargs) -> None:
     """Save DataFrame to Parquet."""
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
+        raise TypeError(f"Expected pandas DataFrame or Series, got {type(df)}")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(path, **kwargs)
     logger.debug(f"Saved Parquet to {path}")
@@ -129,15 +131,10 @@ def load_parquet(path: Union[str, Path], **kwargs) -> pd.DataFrame:
 def save_timeseries_data(data: TimeSeriesData, path: Union[str, Path]) -> None:
     """
     Save TimeSeriesData to a directory structure.
-
-    Structure:
-    - path/
-        - features.parquet
-        - targets.parquet
-        - timestamp.parquet (as a single column df)
-        - metadata.json
-        - split_indices.json
     """
+    if not hasattr(data, "features") or not hasattr(data, "targets"):
+         raise TypeError(f"Expected TimeSeriesData object, got {type(data)}")
+    
     save_dir = Path(path)
     save_dir.mkdir(parents=True, exist_ok=True)
 

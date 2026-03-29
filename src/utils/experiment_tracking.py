@@ -126,8 +126,8 @@ class ExperimentTracker:
         else:
             self._experiment_id = None
             # Create local tracking directory
-            self._default_local_tracking_dir = Path("experiments")
-            self._default_local_tracking_dir.mkdir(parents=True, exist_ok=True)
+            self.tracking_dir = Path(self.tracking_uri.replace("sqlite:///", ""))
+            self.tracking_dir.mkdir(parents=True, exist_ok=True)
             Path(self.artifact_location).mkdir(parents=True, exist_ok=True)
 
     def add_alert(
@@ -254,16 +254,6 @@ class ExperimentTracker:
 
         logger.debug(f"Logged parameters: {list(params.keys())}")
 
-    def log_param(self, key: str, value: Any) -> None:
-        """
-        Log a single parameter.
-
-        Args:
-            key: Parameter name
-            value: Parameter value
-        """
-        self.log_params({key: value})
-
     def log_metrics(
         self, metrics: Dict[str, float], step: Optional[int] = None
     ) -> None:
@@ -288,17 +278,6 @@ class ExperimentTracker:
             mlflow.log_metrics(metrics, step=step)
 
         logger.debug(f"Logged metrics: {list(metrics.keys())}")
-
-    def log_metric(self, key: str, value: float, step: Optional[int] = None) -> None:
-        """
-        Log a single metric.
-
-        Args:
-            key: Metric name
-            value: Metric value
-            step: Optional step number
-        """
-        self.log_metrics({key: value}, step=step)
 
     def log_artifact(
         self, local_path: str, artifact_path: Optional[str] = None
@@ -326,49 +305,6 @@ class ExperimentTracker:
             shutil.copy2(local_path, dest_dir)
 
         logger.debug(f"Logged artifact: {local_path}")
-
-    def log_model_artifact(
-        self,
-        model_artifact: Any,
-        artifact_name: str = "model",
-    ) -> None:
-        """
-        Log a model artifact with metadata.
-
-        Args:
-            model_artifact: ModelArtifact instance
-            artifact_name: Name for the artifact
-        """
-        if self._current_run is None:
-            raise RuntimeError("No active run. Call start_run() first.")
-
-        # Log model metadata as params
-        if hasattr(model_artifact, "hyperparameters"):
-            self.log_params(
-                {
-                    f"{artifact_name}_hyperparams": json.dumps(
-                        model_artifact.hyperparameters
-                    )
-                }
-            )
-
-        # Log training metrics
-        if hasattr(model_artifact, "training_metrics"):
-            prefixed_metrics = {
-                f"{artifact_name}_train_{k}": v
-                for k, v in model_artifact.training_metrics.items()
-            }
-            self.log_metrics(prefixed_metrics)
-
-        # Log validation metrics
-        if hasattr(model_artifact, "validation_metrics"):
-            prefixed_metrics = {
-                f"{artifact_name}_val_{k}": v
-                for k, v in model_artifact.validation_metrics.items()
-            }
-            self.log_metrics(prefixed_metrics)
-
-        logger.info(f"Logged model artifact: {artifact_name}")
 
     def set_tag(self, key: str, value: str) -> None:
         """
@@ -417,7 +353,7 @@ class ExperimentTracker:
                 return None
         else:
             # Load from local file
-            run_file = self._default_local_tracking_dir / f"{run_id}.json"
+            run_file = self.tracking_dir / f"{run_id}.json"
             if run_file.exists():
                 with open(run_file, "r") as f:
                     return ExperimentRun.from_dict(json.load(f))
@@ -469,7 +405,7 @@ class ExperimentTracker:
                 logger.error(f"Failed to list runs: {e}")
         else:
             # Load from local files
-            tracking_dir = self._default_local_tracking_dir
+            tracking_dir = self.tracking_dir
             for run_file in tracking_dir.glob("*.json"):
                 with open(run_file, "r") as f:
                     runs.append(ExperimentRun.from_dict(json.load(f)))
@@ -503,7 +439,7 @@ class ExperimentTracker:
                         logger.warning(f"Failed to delete run {run.run_id}: {e}")
         else:
             # Local cleanup
-            tracking_dir = self._default_local_tracking_dir
+            tracking_dir = self.tracking_dir
             for run_file in tracking_dir.glob("*.json"):
                 try:
                     with open(run_file, "r") as f:
@@ -515,7 +451,7 @@ class ExperimentTracker:
                         artifact_dir = Path(self.artifact_location) / run_data["run_id"]
                         if artifact_dir.exists():
                             shutil.rmtree(artifact_dir)
-                    deleted_count += 1
+                        deleted_count += 1
                 except Exception as e:
                     logger.warning(f"Failed to cleanup local run {run_file}: {e}")
 
@@ -529,7 +465,7 @@ class ExperimentTracker:
         if self._current_run is None:
             return
 
-        run_file = self._default_local_tracking_dir / f"{self._current_run.run_id}.json"
+        run_file = self.tracking_dir / f"{self._current_run.run_id}.json"
         with open(run_file, "w") as f:
             json.dump(self._current_run.to_dict(), f, indent=2)
 
@@ -543,7 +479,7 @@ class ExperimentTracker:
         self.start_run()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type, _exc_val, _exc_tb) -> None:
         """Context manager exit."""
         status = "failed" if exc_type is not None else "completed"
         self.end_run(status=status)

@@ -6,8 +6,10 @@ from typing import Any, Dict, List, Optional, Union, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
+import os
+import json
+from datetime import datetime
 from src.models.base_model import BaseModel, ModelArtifact
 # Circular import avoidance: we assume base_model is independent
 from src.utils.experiment_tracking import ExperimentTracker
@@ -30,146 +32,6 @@ class ModelComparator:
         self.tracker = experiment_tracker
         self.loaded_models: Dict[str, BaseModel] = {}
         self.artifacts: Dict[str, ModelArtifact] = {}
-
-    def load_artifacts(self, run_ids: List[str]) -> None:
-        """
-        Load model artifacts from experiment runs.
-
-        Args:
-            run_ids: List of experiment run IDs
-        """
-        if not self.tracker:
-            raise ValueError("ExperimentTracker not provided")
-
-        for run_id in run_ids:
-            run = self.tracker.get_run(run_id)
-            if not run:
-                logger.warning(f"Run {run_id} not found")
-                continue
-                
-            # Logic to find model artifacts path from run
-            # For this implementation, we assume we can manually load them 
-            # or the tracker provides a path. 
-            # Since ExperimentTracker.get_run returns a valid object if found,
-            # we need a way to actually reconstruct the model.
-            
-            # This part depends on how artifacts are stored. 
-            # Assuming standard structure <artifact_loc>/<run_id>/model/
-            artifact_path = f"{self.tracker.artifact_location}/{run_id}/model"
-            
-            # We need to know which class to instantiate. 
-            # Usually we pick a generic loader or metadata tells us.
-            # For now, we'll try to load metadata first to find type
-            import json
-            import os
-            
-            try:
-                # Helper to instantiate correct class
-                # We need to import all model types here or use a factory
-                from src.models.naive_bayes import NaiveBayesModel
-                from src.models.xgboost_model import XGBoostModel
-                from src.models.lstm_model import LSTMModel
-                from src.models.mitra_model import MitraModel
-                from src.models.ensemble import EnsembleModel
-                
-                # Check if metadata exists
-                meta_path = f"{artifact_path}/metadata.json"
-                if not os.path.exists(meta_path):
-                    logger.warning(f"No metadata found for {run_id}")
-                    continue
-                    
-                with open(meta_path, 'r') as f:
-                    meta = json.load(f)
-                    
-                model_type = meta.get("model_type")
-                
-                model_map = {
-                    "NaiveBayes": NaiveBayesModel,
-                    "XGBoost": XGBoostModel,
-                    "LSTM": LSTMModel,
-                    "Mitra": MitraModel,
-                    "Ensemble": EnsembleModel
-                }
-                
-                model_cls = model_map.get(model_type)
-                if not model_cls:
-                    # Fallback or generic
-                    logger.warning(f"Unknown model type {model_type} for {run_id}")
-                    continue
-                    
-                # Instantiate with factory
-                try:
-                    model = self._instantiate_model(model_cls, meta)
-                    model.load_model(artifact_path)
-                    
-                    self.loaded_models[run_id] = model
-                    self.artifacts[run_id] = model.get_artifact()
-                    logger.info(f"Loaded model {model_type} from {run_id}")
-                except Exception as e:
-                    logger.error(f"Failed to load artifact for {run_id}: {e}")
-            
-            except Exception as e:
-                logger.error(f"Failed to load artifact for {run_id}: {e}")
-
-    def _instantiate_model(self, model_cls: type, meta: Dict[str, Any]) -> BaseModel:
-        """
-        Instantiate a model class using metadata arguments.
-        
-        Args:
-            model_cls: Class of the model
-            meta: Metadata dictionary
-            
-        Returns:
-            Instantiated model
-            
-        Raises:
-            ValueError: If instantiation fails due to missing arguments
-        """
-        # Default args supported by BaseModel
-        kwargs = {
-            "model_id": meta.get("model_id"),
-            "hyperparameters": meta.get("hyperparameters", {})
-        }
-        
-        # Factory overrides for specific models
-        model_type = meta.get("model_type")
-        if model_type == "Ensemble":
-            # Ensemble requires 'models' list. 
-            # If we don't have it serialized, we provide empty list to allow loading.
-            if "models" not in kwargs:
-                kwargs["models"] = []
-                
-            # Also extract specific args from hyperparameters if present
-            hp = kwargs.get("hyperparameters", {})
-            if "method" in hp:
-                kwargs["method"] = hp["method"]
-            if "weights" in hp:
-                kwargs["weights"] = hp["weights"]
-                
-        # Try instantiation with kwargs
-        try:
-            return model_cls(**kwargs)
-        except TypeError as e:
-            # Check if it was an unexpected argument or missing argument
-            if "unexpected keyword argument" in str(e):
-                # Try fallback to no-arg
-                try:
-                    return model_cls()
-                except TypeError as e2:
-                     raise ValueError(
-                         f"Failed to instantiate {model_cls.__name__}: {str(e2)}. "
-                         "Ensure metadata contains all required constructor arguments."
-                     )
-            elif "missing" in str(e) and "argument" in str(e):
-                # Missing required arg
-                raise ValueError(
-                    f"Failed to instantiate {model_cls.__name__}: {str(e)}. "
-                    f"Provided args: {list(kwargs.keys())}. "
-                    "Ensure metadata contains all required constructor arguments."
-                )
-            else:
-                raise e
-
 
     def add_model(self, model: BaseModel, name: str):
         """
@@ -302,3 +164,133 @@ class ModelComparator:
                 results[str(regime)] = pd.DataFrame(regime_metrics, index=model_names)
                 
         return results
+
+    def load_artifacts(self, run_ids: List[str]) -> None:
+        """
+        Load model artifacts from experiment runs.
+
+        Args:
+            run_ids: List of experiment run IDs
+        """
+        if not self.tracker:
+            raise ValueError("ExperimentTracker not provided")
+
+        for run_id in run_ids:
+            run = self.tracker.get_run(run_id)
+            if not run:
+                logger.warning(f"Run {run_id} not found")
+                continue
+                
+            artifact_path = f"{self.tracker.artifact_location}/{run_id}/model"
+            
+            try:
+                from src.models.naive_bayes import NaiveBayesModel
+                from src.models.xgboost_model import XGBoostModel
+                from src.models.lstm_model import LSTMModel
+                from src.models.mitra_model import MitraModel
+                from src.models.ensemble import EnsembleModel
+                
+                meta_path = f"{artifact_path}/metadata.json"
+                if not os.path.exists(meta_path):
+                    logger.warning(f"No metadata found for {run_id}")
+                    continue
+                    
+                with open(meta_path, 'r') as f:
+                    meta = json.load(f)
+                    
+                model_type = meta.get("model_type")
+                
+                model_map = {
+                    "NaiveBayes": NaiveBayesModel,
+                    "XGBoost": XGBoostModel,
+                    "LSTM": LSTMModel,
+                    "Mitra": MitraModel,
+                    "Ensemble": EnsembleModel
+                }
+                
+                model_cls = model_map.get(model_type)
+                if not model_cls:
+                    logger.warning(f"Unknown model type {model_type} for {run_id}")
+                    continue
+                    
+                try:
+                    model = self._instantiate_model(model_cls, meta)
+                    model.load_model(artifact_path)
+                    
+                    self.loaded_models[run_id] = model
+                    self.artifacts[run_id] = model.get_artifact()
+                    logger.info(f"Loaded model {model_type} from {run_id}")
+                except Exception as e:
+                    logger.error(f"Failed to load artifact for {run_id}: {e}")
+            
+            except Exception as e:
+                logger.error(f"Failed to load artifact for {run_id}: {e}")
+
+    def _instantiate_model(self, model_cls: type, meta: Dict[str, Any]) -> BaseModel:
+        """
+        Instantiate a model class using metadata arguments.
+        """
+        kwargs = {
+            "model_id": meta.get("model_id"),
+            "hyperparameters": meta.get("hyperparameters", {})
+        }
+        
+        model_type = meta.get("model_type")
+        if model_type == "Ensemble":
+            if "models" not in kwargs:
+                kwargs["models"] = []
+            hp = kwargs.get("hyperparameters", {})
+            if "method" in hp:
+                kwargs["method"] = hp["method"]
+            if "weights" in hp:
+                kwargs["weights"] = hp["weights"]
+            
+            # Extract models for positional argument if present, default to empty list
+            models = kwargs.pop("models", [])
+            return model_cls(models, **kwargs)
+                
+        try:
+            return model_cls(**kwargs)
+        except TypeError as e:
+            error_msg_suffix = "Ensure metadata contains all required constructor arguments."
+            if "unexpected keyword argument" in str(e):
+                try:
+                    return model_cls()
+                except TypeError as e2:
+                     raise ValueError(f"Failed to instantiate {model_cls.__name__}: {str(e2)}. {error_msg_suffix}")
+            elif "missing" in str(e) and "argument" in str(e):
+                raise ValueError(f"Failed to instantiate {model_cls.__name__}: {str(e)}. {error_msg_suffix}")
+            else:
+                raise e
+
+    def add_model(self, model: BaseModel, name: str):
+        """
+        Manually add a model instance for comparison.
+        """
+        self.loaded_models[name] = model
+        if model.is_fitted:
+            self.artifacts[name] = model.get_artifact()
+
+    def compare_metrics(self, metric_names: Optional[List[str]] = None) -> pd.DataFrame:
+        """
+        Compare metrics across loaded models.
+        """
+        data = []
+        indices = []
+        
+        for name, artifact in self.artifacts.items():
+            metrics = artifact.validation_metrics.copy()
+            for k, v in artifact.training_metrics.items():
+                metrics[f"train_{k}"] = v
+            
+            if metric_names:
+                filtered = {k: v for k, v in metrics.items() if any(m in k for m in metric_names)}
+                data.append(filtered)
+            else:
+                data.append(metrics)
+            indices.append(name)
+            
+        if not data:
+            return pd.DataFrame()
+            
+        return pd.DataFrame(data, index=indices)

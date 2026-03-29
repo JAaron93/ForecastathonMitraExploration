@@ -131,64 +131,6 @@ class VolatilityCalculator:
         
         return vol
 
-    def calculate_yang_zhang_volatility(
-        self,
-        open_price: pd.Series,
-        high: pd.Series,
-        low: pd.Series,
-        close: pd.Series,
-        window: int = 20,
-        annualize: bool = True,
-        trading_days: int = 252
-    ) -> pd.Series:
-        """
-        Calculate Yang-Zhang volatility estimator.
-
-        Combines overnight and intraday volatility for more accurate estimation.
-
-        Args:
-            open_price: Open price series
-            high: High price series
-            low: Low price series
-            close: Close price series
-            window: Rolling window size
-            annualize: Whether to annualize
-            trading_days: Number of trading days per year
-
-        Returns:
-            Series with Yang-Zhang volatility values
-        """
-        # Overnight volatility (close to open)
-        log_oc = np.log(open_price / close.shift(1))
-        overnight_var = log_oc.rolling(window=window).var()
-        
-        # Open to close volatility
-        log_co = np.log(close / open_price)
-        open_close_var = log_co.rolling(window=window).var()
-        
-        # Rogers-Satchell volatility
-        log_ho = np.log(high / open_price)
-        log_lo = np.log(low / open_price)
-        log_hc = np.log(high / close)
-        log_lc = np.log(low / close)
-        
-        rs_var = (log_ho * log_hc + log_lo * log_lc).rolling(window=window).mean()
-        
-        # Yang-Zhang combination
-        if window < 2:
-            raise ValueError("window must be at least 2 for Yang-Zhang volatility")
-        
-        # Yang-Zhang combination
-        k = 0.34 / (1.34 + (window + 1) / (window - 1))
-        yz_var = overnight_var + k * open_close_var + (1 - k) * rs_var
-        
-        vol = np.sqrt(yz_var.clip(lower=0))
-        
-        if annualize:
-            vol = vol * np.sqrt(trading_days)
-        
-        return vol
-
     def calculate_ewma_volatility(
         self,
         returns: pd.Series,
@@ -214,64 +156,6 @@ class VolatilityCalculator:
             vol = vol * np.sqrt(trading_days)
         
         return vol
-
-    def add_all_volatility_measures(
-        self,
-        df: pd.DataFrame,
-        open_col: str = "open",
-        high_col: str = "high",
-        low_col: str = "low",
-        close_col: str = "close",
-        windows: Optional[List[int]] = None
-    ) -> pd.DataFrame:
-        """
-        Add all volatility measures to DataFrame.
-
-        Args:
-            df: DataFrame with OHLC data
-            open_col: Column name for open prices
-            high_col: Column name for high prices
-            low_col: Column name for low prices
-            close_col: Column name for close prices
-            windows: List of window sizes
-
-        Returns:
-            DataFrame with volatility measures added
-        """
-        result = df.copy()
-        
-        if windows is None:
-            windows = [5, 10, 20, 50]
-
-        # Calculate returns
-        close = df[close_col]
-        returns = np.log(close / close.shift(1))
-
-        for window in windows:
-            # Realized volatility
-            result[f"realized_vol_{window}"] = self.calculate_realized_volatility(
-                returns, window=window
-            )
-            
-            # Parkinson volatility
-            if high_col in df.columns and low_col in df.columns:
-                result[f"parkinson_vol_{window}"] = self.calculate_parkinson_volatility(
-                    df[high_col], df[low_col], window=window
-                )
-            
-            # Garman-Klass volatility
-            if all(c in df.columns for c in [open_col, high_col, low_col]):
-                result[f"gk_vol_{window}"] = self.calculate_garman_klass_volatility(
-                    df[open_col], df[high_col], df[low_col], close, window=window
-                )
-
-        # EWMA volatility
-        result["ewma_vol_20"] = self.calculate_ewma_volatility(returns, span=20)
-        result["ewma_vol_60"] = self.calculate_ewma_volatility(returns, span=60)
-
-        logger.info(f"Added {len(result.columns) - len(df.columns)} volatility measures")
-        return result
-
 
 class RegimeDetector:
     """Detect market regimes based on volatility and other indicators."""
@@ -447,40 +331,3 @@ class RegimeDetector:
         duration = regime_series.groupby(regime_groups).cumcount() + 1
         
         return duration
-
-    def get_regime_statistics(
-        self,
-        df: pd.DataFrame,
-        regime_col: str,
-        return_col: str
-    ) -> Dict[str, Dict[str, float]]:
-        """
-        Calculate statistics for each regime.
-
-        Args:
-            df: DataFrame with regime and return data
-            regime_col: Column name for regime labels
-            return_col: Column name for returns
-
-        Returns:
-            Dictionary with statistics per regime
-        """
-        stats = {}
-        
-        for regime in df[regime_col].unique():
-            regime_data = df[df[regime_col] == regime][return_col]
-            
-            stats[regime] = {
-                "count": len(regime_data),
-                "mean_return": regime_data.mean(),
-                "std_return": regime_data.std(),
-                "sharpe": (
-                    regime_data.mean() / regime_data.std() * np.sqrt(252)
-                    if regime_data.std() > 0 else 0
-                ),
-                "min_return": regime_data.min(),
-                "max_return": regime_data.max(),
-                "pct_positive": (regime_data > 0).mean(),
-            }
-        
-        return stats

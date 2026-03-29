@@ -16,7 +16,6 @@ from sklearn.metrics import (
     mean_absolute_error,
     r2_score,
     roc_auc_score,
-    confusion_matrix,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,15 +42,7 @@ class MetricsCalculator:
 
     def __init__(self):
         """Initialize MetricsCalculator."""
-        self._classification_metrics = [
-            "accuracy", "precision", "recall", "f1",
-            "brier_score", "log_loss", "roc_auc"
-        ]
-        self._regression_metrics = ["mse", "rmse", "mae", "r2", "mape"]
-        self._trading_metrics = [
-            "sharpe_ratio", "max_drawdown", "hit_rate",
-            "profit_factor", "win_rate"
-        ]
+        pass
 
     def calculate_classification_metrics(
         self,

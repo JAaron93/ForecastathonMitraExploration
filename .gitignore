@@ -197,10 +197,12 @@ models/lstm/*
 models/mitra/*
 !models/mitra/.gitkeep
 
-# MLflow
+# MLflow / Experiments
 mlruns/
 experiments/mlflow_runs/*
 !experiments/mlflow_runs/.gitkeep
+experiments/*.json
+experiments/*.db
 
 # Logs (keep .gitkeep)
 logs/data_validation/*

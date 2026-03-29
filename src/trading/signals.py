@@ -15,8 +15,6 @@ class TradingSignal:
     asset: str
     signal_type: str  # 'buy', 'sell', 'hold'
     confidence: float
-    position_size: float = 0.0
-    model_source: str = "unknown"
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -105,7 +103,6 @@ class SignalGenerator:
                 asset=asset_name,
                 signal_type=signal_type,
                 confidence=confidence,
-                model_source=model_name,
                 metadata={"raw_prediction": float(pred)}
             ))
             

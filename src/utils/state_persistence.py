@@ -4,7 +4,6 @@ import json
 import logging
 import joblib
 import shutil
-from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -24,8 +23,7 @@ class PipelineStateManager:
         run_id: str,
         step_name: str,
         data: Any = None,
-        context: Dict[str, Any] = None,
-        retention_days: int = 30
+        context: Dict[str, Any] = None
     ) -> str:
         """
         Save intermediate state.
@@ -35,7 +33,6 @@ class PipelineStateManager:
             step_name: Name of the pipeline step
             data: Data objects to save (optional, pickled)
             context: Metadata context (dict, JSON saved)
-            retention_days: (Not implemented in MVP, but placeholder for cleanup)
             
         Returns:
             Path to saved state directory

@@ -99,10 +99,6 @@ class AlertManager:
         """Get history of triggered alerts."""
         return list(self._triggered_alerts)
 
-    def clear_history(self) -> None:
-        """Clear the alert history."""
-        self._triggered_alerts.clear()
-
 class SystemMonitor:
     """
     Monitors system resources in the background.
@@ -186,7 +182,3 @@ class SystemMonitor:
     def get_history(self) -> List[ResourceUsage]:
         """Get recorded usage history."""
         return list(self._usage_history)
-        
-    def get_alerts(self) -> List[Dict[str, Any]]:
-        """Get triggered alerts."""
-        return self._alert_manager.get_triggered_history()
