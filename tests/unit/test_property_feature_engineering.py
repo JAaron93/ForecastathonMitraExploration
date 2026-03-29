@@ -21,6 +21,11 @@ from src.features.regime_detection import RegimeDetector, VolatilityCalculator
 from src.features.technical_indicators import TechnicalIndicators
 
 
+# Constants for holiday feature validation
+BOUNDARY_CHECK_SIZE = 30
+NAN_PROPORTION_THRESHOLD = 0.1
+
+
 # Custom strategies for generating test data
 @st.composite
 def ohlcv_dataframe(draw, min_rows=30, max_rows=200):
@@ -613,38 +618,36 @@ class TestCalendarFeaturesCorrectness:
 
         # Check that the holiday columns exist
         assert "is_holiday" in result.columns
+        assert "days_to_next_holiday" in result.columns
+        assert "days_from_last_holiday" in result.columns
         assert "days_to_nearest_holiday" in result.columns
-        assert "days_from_nearest_holiday" in result.columns
 
-        assume(len(df) >= 30)
+        # Check the first values for NaNs
+        for col in ["days_to_next_holiday", "days_from_last_holiday", "days_to_nearest_holiday"]:
+            assert not result[col].head(BOUNDARY_CHECK_SIZE).isna().any(), (
+                f"NaNs found at the start of {col} (checked first {BOUNDARY_CHECK_SIZE})"
+            )
 
-        # Check the first 30 values for NaNs
-        assert not result["days_to_nearest_holiday"].head(30).isna().any(), (
-            "NaNs found at the start of days_to_nearest_holiday"
-        )
-        assert not result["days_from_nearest_holiday"].head(30).isna().any(), (
-            "NaNs found at the start of days_from_nearest_holiday"
-        )
-
-        # Check the last 30 values for NaNs
-        assert not result["days_to_nearest_holiday"].tail(30).isna().any(), (
-            "NaNs found at the end of days_to_nearest_holiday"
-        )
-        assert not result["days_from_nearest_holiday"].tail(30).isna().any(), (
-            "NaNs found at the end of days_from_nearest_holiday"
-        )
+        # Check the last values for NaNs
+        for col in ["days_to_next_holiday", "days_from_last_holiday", "days_to_nearest_holiday"]:
+            assert not result[col].tail(BOUNDARY_CHECK_SIZE).isna().any(), (
+                f"NaNs found at the end of {col} (checked last {BOUNDARY_CHECK_SIZE})"
+            )
 
         # Additionally, a general check that the proportion of NaNs is low
-        nan_proportion_to_next = result["days_to_nearest_holiday"].isna().sum() / len(
-            result
-        )
-        nan_proportion_from_last = result[
-            "days_from_nearest_holiday"
-        ].isna().sum() / len(result)
+        for col in ["days_to_next_holiday", "days_from_last_holiday", "days_to_nearest_holiday"]:
+            nan_proportion = result[col].isna().sum() / len(result)
+            assert nan_proportion < NAN_PROPORTION_THRESHOLD, (
+                f"High proportion of NaNs in {col} (threshold: {NAN_PROPORTION_THRESHOLD})"
+            )
 
-        assert nan_proportion_to_next < 0.1, (
-            "High proportion of NaNs in days_to_nearest_holiday"
-        )
-        assert nan_proportion_from_last < 0.1, (
-            "High proportion of NaNs in days_from_nearest_holiday"
+        # Verify nearest calculation: nearest should be min(next, last)
+        # Note: we use fillna(inf) for comparison if one is NaN (though logic ensures they shouldn't be at boundaries)
+        next_dist = result["days_to_next_holiday"].fillna(np.inf)
+        last_dist = result["days_from_last_holiday"].fillna(np.inf)
+        nearest_dist = result["days_to_nearest_holiday"].fillna(np.inf)
+
+        expected_nearest = np.minimum(next_dist, last_dist)
+        pd.testing.assert_series_equal(
+            nearest_dist, expected_nearest, check_names=False, obj="Nearest holiday distance"
         )

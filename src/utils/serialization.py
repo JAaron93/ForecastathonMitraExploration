@@ -246,6 +246,8 @@ def load_timeseries_data(path: Union[str, Path]) -> TimeSeriesData:
                 and all(isinstance(i, int) for i in value)
             ):
                 filtered_split_indices[key] = value
+            else:
+                logger.debug(f"Filtered invalid split_indices entry: {key!r}")
         split_indices = filtered_split_indices
 
     return TimeSeriesData(

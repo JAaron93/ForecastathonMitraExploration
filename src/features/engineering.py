@@ -278,20 +278,22 @@ class FeatureEngineer:
                 result.index[valid_prev] - sorted_holidays[idx_prev[valid_prev]]
             ).days
 
-            result["days_to_nearest_holiday"] = days_to_next
-            result["days_from_nearest_holiday"] = days_from_last
+            result["days_to_next_holiday"] = days_to_next
+            result["days_from_last_holiday"] = days_from_last
+            result["days_to_nearest_holiday"] = np.minimum(days_to_next, days_from_last)
 
-            # Replace infinity with NaN or a large number if preferred
-            result["days_to_nearest_holiday"] = result["days_to_nearest_holiday"].replace(
-                np.inf, np.nan
-            )
-            result["days_from_nearest_holiday"] = result[
-                "days_from_nearest_holiday"
-            ].replace(np.inf, np.nan)
+            # Replace infinity with NaN for all distance features
+            for col in [
+                "days_to_next_holiday",
+                "days_from_last_holiday",
+                "days_to_nearest_holiday",
+            ]:
+                result[col] = result[col].replace(np.inf, np.nan)
 
         else:
+            result["days_to_next_holiday"] = np.nan
+            result["days_from_last_holiday"] = np.nan
             result["days_to_nearest_holiday"] = np.nan
-            result["days_from_nearest_holiday"] = np.nan
 
         return result
 

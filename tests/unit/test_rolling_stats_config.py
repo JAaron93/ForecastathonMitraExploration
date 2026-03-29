@@ -4,6 +4,7 @@ Test script to verify that calculate_rolling_stats properly uses config-driven d
 
 import pandas as pd
 import numpy as np
+import pytest
 from src.features.engineering import FeatureEngineer
 
 
@@ -11,12 +12,12 @@ def test_calculate_rolling_stats_config_defaults():
     """Test that calculate_rolling_stats uses config-driven defaults for stats parameter."""
 
     # Create test data
-    np.random.seed(42)  # For reproducibility
+    rng = np.random.default_rng(42)  # For reproducibility
     dates = pd.date_range("2020-01-01", periods=100, freq="D")
     df = pd.DataFrame(
         {
-            "close": np.random.randn(100).cumsum() + 100,
-            "volume": np.random.randint(1000, 10000, 100),
+            "close": rng.standard_normal(100).cumsum() + 100,
+            "volume": rng.integers(1000, 10000, size=100),
         },
         index=dates,
     )
@@ -40,7 +41,8 @@ def test_calculate_rolling_stats_config_defaults():
         )
 
     # Value-based assertion for rolling mean to catch calculation regressions
-    expected_mean = df["close"].rolling(window=10).mean()
+    # Use min_periods=1 to match FeatureEngineer implementation
+    expected_mean = df["close"].rolling(window=10, min_periods=1).mean()
     pd.testing.assert_series_equal(
         result_no_config["close_rolling_mean_10"], expected_mean, check_names=False
     )
@@ -61,6 +63,14 @@ def test_calculate_rolling_stats_config_defaults():
         assert feature in result_with_config.columns, (
             f"Missing expected feature: {feature}"
         )
+
+    # Value-level assertion for the median column
+    expected_median = df["close"].rolling(window=10, min_periods=1).median()
+    # Choose index 15 (well within the 100-row dataframe)
+    checked_idx = 15
+    assert result_with_config["close_rolling_median_10"].iloc[checked_idx] == pytest.approx(
+        expected_median.iloc[checked_idx], abs=1e-6
+    )
 
     # Should NOT have std, min, max since they weren't in config
     unexpected_features = [
