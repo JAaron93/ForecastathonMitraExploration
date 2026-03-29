@@ -126,7 +126,12 @@ class ExperimentTracker:
         else:
             self._experiment_id = None
             # Create local tracking directory
-            db_path = Path(self.tracking_uri.replace("sqlite:///", ""))
+            if self.tracking_uri.startswith("sqlite:///"):
+                # Handle both relative (sqlite:///) and absolute (sqlite:////) paths
+                db_path = Path(self.tracking_uri[len("sqlite:///"):])
+            else:
+                # Fallback: treat as direct path
+                db_path = Path(self.tracking_uri)
             self.tracking_dir = db_path.parent / "runs"
             self.tracking_dir.mkdir(parents=True, exist_ok=True)
             Path(self.artifact_location).mkdir(parents=True, exist_ok=True)

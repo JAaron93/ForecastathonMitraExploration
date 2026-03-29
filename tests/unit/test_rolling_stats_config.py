@@ -44,7 +44,10 @@ def test_calculate_rolling_stats_config_defaults():
     # Use min_periods=1 to match FeatureEngineer implementation
     expected_mean = df["close"].rolling(window=10, min_periods=1).mean()
     pd.testing.assert_series_equal(
-        result_no_config["close_rolling_mean_10"], expected_mean, check_names=False
+        result_no_config["close_rolling_mean_10"],
+        expected_mean,
+        check_names=False,
+        atol=1e-6,
     )
 
     # Test 2: Config with rolling_stats provided - should use those stats

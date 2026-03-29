@@ -141,18 +141,38 @@ class ModelComparator:
 
                     metrics = {}
 
-                    # Heuristic to detect task type
+                    # Determine task type (regression vs classification)
+                    # Priority: y_sub properties -> model metadata -> model attributes -> default
                     is_regression = False
                     if (
                         pd.api.types.is_numeric_dtype(y_sub)
                         and len(np.unique(y_sub)) > 20
                     ):
                         is_regression = True
-                    elif (
-                        pd.api.types.is_numeric_dtype(preds)
-                        and len(np.unique(preds)) > 20
-                    ):
-                        is_regression = True
+                    else:
+                        # Fallback: Check model metadata for explicit task type
+                        # This avoids misclassifying classification probabilities as regression.
+                        task_meta = model.metadata.get("task_type", "").lower()
+                        if "regression" in task_meta:
+                            is_regression = True
+                        elif "classification" in task_meta:
+                            is_regression = False
+                        else:
+                            # Secondary fallback: Check model-specific indicators
+                            m_type = getattr(model, "model_type", "").lower()
+                            obj = getattr(model, "objective", "").lower()
+
+                            if "reg:" in obj or m_type == "lstm_keras":
+                                is_regression = True
+                            elif (
+                                "binary:" in obj
+                                or "multi:" in obj
+                                or m_type in ["naivebayes", "mitra"]
+                            ):
+                                is_regression = False
+                            else:
+                                # Default to classification for discrete or low-variance targets
+                                is_regression = False
 
                     # Regression metrics
                     if is_regression:
@@ -226,7 +246,9 @@ class ModelComparator:
                     meta = json.load(f)
 
                 if not meta:
-                    logger.warning(f"Metadata is empty for run_id '{run_id}'. Skipping.")
+                    logger.warning(
+                        f"Metadata is empty for run_id '{run_id}'. Skipping."
+                    )
                     continue
 
                 model_type = meta.get("model_type")
@@ -252,7 +274,7 @@ class ModelComparator:
                     # Store artifacts
                     self.loaded_models[run_id] = model
                     self.artifacts[run_id] = model.get_artifact()
-                    
+
                     logger.info(
                         f"Successfully loaded model '{model_type}' from run_id '{run_id}'."
                     )
@@ -265,7 +287,9 @@ class ModelComparator:
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse metadata for run_id '{run_id}': {e}")
             except Exception as e:
-                logger.error(f"Unexpected error loading metadata for run_id '{run_id}': {e}")
+                logger.error(
+                    f"Unexpected error loading metadata for run_id '{run_id}': {e}"
+                )
 
     def _instantiate_model(self, model_cls: type, meta: Dict[str, Any]) -> BaseModel:
         """
