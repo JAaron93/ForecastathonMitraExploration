@@ -23,16 +23,16 @@ logger = logging.getLogger(__name__)
 class DateTimeEncoder(json.JSONEncoder):
     """JSON encoder that handles datetime and numpy types."""
 
-    def default(self, obj):
-        if isinstance(obj, (datetime, pd.Timestamp)):
-            return obj.isoformat()
-        if isinstance(obj, (np.integer, np.int64)):
-            return int(obj)
-        if isinstance(obj, (np.floating, np.float64)):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, (datetime, pd.Timestamp)):
+            return o.isoformat()
+        if isinstance(o, np.integer):
+            return int(o)
+        if isinstance(o, np.floating):
+            return float(o)
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        return super().default(o)
 
 
 def save_json(data: Any, path: Union[str, Path], **kwargs) -> None:
@@ -69,8 +69,11 @@ def load_joblib(
     """
     Load object from joblib with optional HMAC signature verification.
 
-    The TypeVar `T` will be inferred as `Any` by static type checkers unless an
-    explicit type hint is provided by the caller (e.g., `model: MyType = load_joblib(...)`).
+    The TypeVar `T` allows for generic typing, but its inference behavior varies by
+    static type checker. Some may infer it as `object`, others as `Any` when context
+    doesn't provide enough information. For precise typing, provide an explicit type
+    hint (e.g., `model: MyType = load_joblib(...)`) or use overload signatures for
+    common types.
 
     Args:
         path: Path to the joblib file
@@ -187,6 +190,13 @@ def load_timeseries_data(path: Union[str, Path]) -> TimeSeriesData:
     target_meta_path = load_dir / "target_meta.json"
     if target_meta_path.exists():
         target_meta = load_json(target_meta_path)
+        # Ensure target_meta is a dictionary for safe .get() access
+        if not isinstance(target_meta, dict):
+            target_meta = {
+                "is_series": len(targets_df.columns) == 1
+                and targets_df.columns[0] == "target",
+                "name": "target",
+            }
     else:
         # Fallback heuristic
         target_meta = {
@@ -218,7 +228,25 @@ def load_timeseries_data(path: Union[str, Path]) -> TimeSeriesData:
     timestamp = pd.DatetimeIndex(timestamp_df["timestamp"])
 
     metadata = load_json(load_dir / "metadata.json")
+    # Ensure metadata is a dict for TimeSeriesData
+    if not isinstance(metadata, dict):
+        metadata = {}
+
     split_indices = load_json(load_dir / "split_indices.json")
+    # Ensure split_indices is a dict of str to list of ints for TimeSeriesData
+    if not isinstance(split_indices, dict):
+        split_indices = {}
+    else:
+        # Filter to only include entries with str keys and list of int values
+        filtered_split_indices = {}
+        for key, value in split_indices.items():
+            if (
+                isinstance(key, str)
+                and isinstance(value, list)
+                and all(isinstance(i, int) for i in value)
+            ):
+                filtered_split_indices[key] = value
+        split_indices = filtered_split_indices
 
     return TimeSeriesData(
         timestamp=timestamp,

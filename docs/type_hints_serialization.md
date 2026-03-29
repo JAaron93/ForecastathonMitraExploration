@@ -40,23 +40,41 @@ model = load_joblib('model.joblib')  # Type: Any (because T is unbounded)
 model: RandomForestClassifier = load_joblib('model.joblib')  # Type: RandomForestClassifier
 ```
 
-**Recommended Alternatives for Real Type Inference**:
+#### Recommended Alternatives for Type Safety
 
-To achieve real type inference (where the type checker can narrow the type based on usage), consider one of the following:
+To improve type checking behavior, consider either constraining types or enabling automatic type inference:
 
-1. **Bound TypeVar**: If there is a common base class for the expected types, bind the TypeVar to that base.
-   ```python
-   from typing import TypeVar
-   from sklearn.base import BaseEstimator  # Example base class
+**A. Constraining Types (Bound TypeVar)**
 
-   T = TypeVar('T', bound=BaseEstimator)
+If there is a common base class for the expected types, you can bind the `TypeVar` to that base class. This ensures any loaded object will at least support the base class's interface.
 
-   def load_joblib(path: Union[str, Path]) -> T:
-       # Implementation
-   ```
-   Now, if you load a `RandomForestClassifier` (which is a `BaseEstimator`), the type checker will know it's a `BaseEstimator` and allow accessing its methods.
+```python
+from typing import TypeVar, Union
+from pathlib import Path
+from sklearn.base import BaseEstimator  # Example base class
 
-2. **Overloading**: Use `@overload` to define multiple return types for specific cases.
+T = TypeVar('T', bound=BaseEstimator)
+
+def load_joblib(path: Union[str, Path]) -> T:
+    # Implementation
+    pass
+```
+
+**Note on Inference**: Using a bound `TypeVar` only constrains `T` to `BaseEstimator`; it does **not** provide automatic inference of a concrete subclass at the call site. If you use `load_joblib()`, it will be inferred as `BaseEstimator`. For concrete type safety, the caller must still provide an explicit annotation:
+
+```python
+# Inferred as BaseEstimator (base interface)
+model = load_joblib('model.joblib')
+
+# Explicitly annotated (concrete subclass safety)
+model: RandomForestClassifier = load_joblib('model.joblib')
+```
+
+**B. Real Type Inference (Automatic Narrowing)**
+
+To achieve real type inference where the type checker can automatically narrow the type based on the function call, consider one of the following:
+
+1. **Overloading**: Use `@overload` to define specific return types for known paths.
    ```python
    from typing import overload, Union, Literal, Any
    from sklearn.ensemble import RandomForestClassifier
@@ -74,17 +92,22 @@ To achieve real type inference (where the type checker can narrow the type based
    ```
    Note: This requires knowing the specific paths or using other parameters to differentiate.
 
-3. **Type Parameter for Class Objects**: If you are loading class objects (not instances), accept a `Type[T]` parameter.
+2. **Type Parameter for Class Objects**: If you are loading instances and want the type checker to infer the correct type, accept a `Type[T]` parameter to assist with static type inference.
    ```python
    from typing import Type, TypeVar
+   import joblib
+
    T = TypeVar('T')
 
    def load_joblib_class(path: Union[str, Path], cls: Type[T]) -> T:
-       # Implementation: load and return an instance of cls
+       # cls is used only for static type inference and is not instantiated at runtime; 
+       # joblib.load() actually deserializes the object from disk and the caller 
+       # must ensure the serialized object matches the provided Type[T].
+       return joblib.load(path)
    ```
-   Then, when calling, you pass the class: `model = load_joblib_class('model.joblib', RandomForestClassifier)`
+   Usage of `load_joblib_class` allows the type checker to infer the instance type: `model = load_joblib_class('model.joblib', RandomForestClassifier)`
 
-4. **Explicit Annotation or Cast**: Document that without the above, users must provide explicit type annotations or use `cast()` to help the type checker.
+3. **Explicit Annotation or Cast**: Document that without the above, users must provide explicit type annotations or use `cast()` to help the type checker.
    ```python
    from typing import cast
    model = cast(RandomForestClassifier, load_joblib('model.joblib'))

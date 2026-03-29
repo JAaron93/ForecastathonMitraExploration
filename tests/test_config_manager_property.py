@@ -110,22 +110,7 @@ class TestConfigManagerProperties:
         )
 
         # Verify the original config_copy remains unchanged (immutability guarantee)
-        original_value = self.manager.get_value(config_copy, path)
-        # Only compare if the path existed in the original
-        keys = path.split(".")
-        current = config_copy
-        path_existed = True
-        for k in keys:
-            if isinstance(current, dict) and k in current:
-                current = current[k]
-            else:
-                path_existed = False
-                break
-
-        if path_existed:
-            assert json.dumps(original_value, sort_keys=True) == json.dumps(
-                current, sort_keys=True
-            )
+        assert json.dumps(config_copy, sort_keys=True) == original_config_snapshot
 
     @given(
         st.dictionaries(st.text(min_size=1), json_values),

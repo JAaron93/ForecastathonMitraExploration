@@ -2,11 +2,6 @@
 Test script to verify that calculate_rolling_stats properly uses config-driven defaults for the stats parameter.
 """
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-
 import pandas as pd
 import numpy as np
 from src.features.engineering import FeatureEngineer
@@ -16,6 +11,7 @@ def test_calculate_rolling_stats_config_defaults():
     """Test that calculate_rolling_stats uses config-driven defaults for stats parameter."""
 
     # Create test data
+    np.random.seed(42)  # For reproducibility
     dates = pd.date_range("2020-01-01", periods=100, freq="D")
     df = pd.DataFrame(
         {
@@ -25,10 +21,7 @@ def test_calculate_rolling_stats_config_defaults():
         index=dates,
     )
 
-    print("Testing calculate_rolling_stats config-driven defaults...")
-
     # Test 1: No config provided - should use default stats ["mean", "std", "min", "max"]
-    print("\nTest 1: No config provided")
     result_no_config = FeatureEngineer.calculate_rolling_stats(
         df, columns=["close"], windows=[10]
     )
@@ -46,12 +39,13 @@ def test_calculate_rolling_stats_config_defaults():
             f"Missing expected feature: {feature}"
         )
 
-    print(
-        f"✓ No config test passed. Created features: {[f for f in result_no_config.columns if 'rolling' in f]}"
+    # Value-based assertion for rolling mean to catch calculation regressions
+    expected_mean = df["close"].rolling(window=10).mean()
+    pd.testing.assert_series_equal(
+        result_no_config["close_rolling_mean_10"], expected_mean, check_names=False
     )
 
     # Test 2: Config with rolling_stats provided - should use those stats
-    print("\nTest 2: Config with rolling_stats provided")
     config_with_stats = {
         "rolling_stats": ["mean", "median"]  # Only mean and median
     }
@@ -79,12 +73,7 @@ def test_calculate_rolling_stats_config_defaults():
             f"Unexpected feature found: {feature}"
         )
 
-    print(
-        f"✓ Config with stats test passed. Created features: {[f for f in result_with_config.columns if 'rolling' in f]}"
-    )
-
     # Test 3: Config with empty rolling_stats - should fall back to default
-    print("\nTest 3: Config with empty rolling_stats (should fall back to default)")
     config_empty_stats = {
         "rolling_stats": []  # Empty list
     }
@@ -106,12 +95,7 @@ def test_calculate_rolling_stats_config_defaults():
             f"Missing expected feature: {feature}"
         )
 
-    print(
-        f"✓ Empty config stats test passed. Created features: {[f for f in result_empty_config.columns if 'rolling' in f]}"
-    )
-
     # Test 4: Config without rolling_stats key - should fall back to default
-    print("\nTest 4: Config without rolling_stats key (should fall back to default)")
     config_no_stats_key = {
         "other_setting": "value"
         # No rolling_stats key
@@ -133,14 +117,6 @@ def test_calculate_rolling_stats_config_defaults():
         assert feature in result_no_stats_key.columns, (
             f"Missing expected feature: {feature}"
         )
-
-    print(
-        f"✓ No stats key test passed. Created features: {[f for f in result_no_stats_key.columns if 'rolling' in f]}"
-    )
-
-    print(
-        "\n✅ All tests passed! calculate_rolling_stats properly uses config-driven defaults for stats parameter."
-    )
 
 
 if __name__ == "__main__":

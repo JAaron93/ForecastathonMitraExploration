@@ -228,43 +228,63 @@ class FeatureEngineer:
         result = df.copy()
 
         # Use the holidays library for country-specific holidays
-        country_holidays = holidays.CountryHoliday(country)
+        country_holidays = holidays.country_holidays(country)
 
-        # Initialize holiday column
-        result["is_holiday"] = result.index.map(
-            lambda x: 1 if x in country_holidays else 0
+        # Expand the date range to query for holidays to avoid NaNs at boundaries
+        min_date = result.index.min()
+        max_date = result.index.max()
+        # Define a margin, e.g., 365 days before min_date and after max_date
+        date_margin = pd.Timedelta(days=365)
+
+        expanded_start_date = min_date - date_margin
+        expanded_end_date = max_date + date_margin
+
+        # Generate a full date range including the margin
+        full_date_range = pd.date_range(
+            start=expanded_start_date, end=expanded_end_date, freq="D"
         )
 
-        # Calculate days until/since nearest holiday
-        holiday_dates = result[result["is_holiday"] == 1].index
+        # Identify holidays within the expanded range
+        expanded_holidays = full_date_range[
+            [date in country_holidays for date in full_date_range]
+        ]
+        holiday_dates = pd.DatetimeIndex(expanded_holidays)
+
+        # Vectorized holiday indicator using the expanded holiday list
+        # result.index.normalize() ensures we match dates even if index has times
+        result["is_holiday"] = result.index.normalize().isin(holiday_dates).astype(int)
+
         if not holiday_dates.empty:
             # Ensure the index is a DatetimeIndex for date calculations
             if not isinstance(result.index, pd.DatetimeIndex):
                 result.index = pd.to_datetime(result.index)
 
-            # Calculate days to nearest future holiday
-            def days_to_next_holiday(date):
-                future_holidays = holiday_dates[holiday_dates >= date]
-                if not future_holidays.empty:
-                    return (future_holidays.min() - date).days
-                return np.inf  # No future holidays
+            # Vectorized calculation of days to next/from last holiday
+            sorted_holidays = holiday_dates.sort_values()
 
-            # Calculate days from nearest past holiday
-            def days_from_last_holiday(date):
-                past_holidays = holiday_dates[holiday_dates <= date]
-                if not past_holidays.empty:
-                    return (date - past_holidays.max()).days
-                return np.inf  # No past holidays
+            # Days to next holiday (>= current date)
+            idx_next = np.searchsorted(sorted_holidays, result.index, side="left")
+            valid_next = idx_next < len(sorted_holidays)
+            days_to_next = np.full(len(result.index), np.inf)
+            days_to_next[valid_next] = (
+                sorted_holidays[idx_next[valid_next]] - result.index[valid_next]
+            ).days
 
-            result["days_to_nearest_holiday"] = result.index.map(days_to_next_holiday)
-            result["days_from_nearest_holiday"] = result.index.map(
-                days_from_last_holiday
-            )
+            # Days from last holiday (<= current date)
+            idx_prev = np.searchsorted(sorted_holidays, result.index, side="right") - 1
+            valid_prev = idx_prev >= 0
+            days_from_last = np.full(len(result.index), np.inf)
+            days_from_last[valid_prev] = (
+                result.index[valid_prev] - sorted_holidays[idx_prev[valid_prev]]
+            ).days
+
+            result["days_to_nearest_holiday"] = days_to_next
+            result["days_from_nearest_holiday"] = days_from_last
 
             # Replace infinity with NaN or a large number if preferred
-            result["days_to_nearest_holiday"] = result[
-                "days_to_nearest_holiday"
-            ].replace(np.inf, np.nan)
+            result["days_to_nearest_holiday"] = result["days_to_nearest_holiday"].replace(
+                np.inf, np.nan
+            )
             result["days_from_nearest_holiday"] = result[
                 "days_from_nearest_holiday"
             ].replace(np.inf, np.nan)

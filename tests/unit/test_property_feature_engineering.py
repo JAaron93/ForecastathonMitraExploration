@@ -13,10 +13,12 @@ mathematically correct according to their definitions.
 
 import numpy as np
 import pandas as pd
-from hypothesis import given, strategies as st, settings, assume
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
+
 from src.features.engineering import FeatureEngineer
+from src.features.regime_detection import RegimeDetector, VolatilityCalculator
 from src.features.technical_indicators import TechnicalIndicators
-from src.features.regime_detection import VolatilityCalculator, RegimeDetector
 
 
 # Custom strategies for generating test data
@@ -80,13 +82,16 @@ def ohlcv_dataframe(draw, min_rows=30, max_rows=200):
         )
     )
 
-    df = pd.DataFrame({
-        "open": open_prices,
-        "high": high,
-        "low": low,
-        "close": close,
-        "volume": volume,
-    }, index=dates)
+    df = pd.DataFrame(
+        {
+            "open": open_prices,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=dates,
+    )
 
     return df
 
@@ -97,8 +102,9 @@ def numeric_series(draw, min_size=30, max_size=200):
     n = draw(st.integers(min_value=min_size, max_value=max_size))
     values = draw(
         st.lists(
-            st.floats(min_value=1.0, max_value=1000.0, allow_nan=False,
-                      allow_infinity=False),
+            st.floats(
+                min_value=1.0, max_value=1000.0, allow_nan=False, allow_infinity=False
+            ),
             min_size=n,
             max_size=n,
         )
@@ -111,13 +117,17 @@ def numeric_series(draw, min_size=30, max_size=200):
 def lag_periods(draw):
     """Generate valid lag periods."""
     n_lags = draw(st.integers(min_value=1, max_value=5))
-    lags = sorted(set(draw(
-        st.lists(
-            st.integers(min_value=1, max_value=20),
-            min_size=n_lags,
-            max_size=n_lags,
+    lags = sorted(
+        set(
+            draw(
+                st.lists(
+                    st.integers(min_value=1, max_value=20),
+                    min_size=n_lags,
+                    max_size=n_lags,
+                )
+            )
         )
-    )))
+    )
     return lags
 
 
@@ -125,13 +135,17 @@ def lag_periods(draw):
 def rolling_windows(draw):
     """Generate valid rolling window sizes."""
     n_windows = draw(st.integers(min_value=1, max_value=4))
-    windows = sorted(set(draw(
-        st.lists(
-            st.integers(min_value=2, max_value=30),
-            min_size=n_windows,
-            max_size=n_windows,
+    windows = sorted(
+        set(
+            draw(
+                st.lists(
+                    st.integers(min_value=2, max_value=30),
+                    min_size=n_windows,
+                    max_size=n_windows,
+                )
+            )
         )
-    )))
+    )
     return windows
 
 
@@ -173,7 +187,7 @@ class TestLagFeatureCorrectness:
                     actual[valid_mask].values,
                     expected[valid_mask].values,
                     decimal=10,
-                    err_msg=f"Lag {lag} values don't match shifted original"
+                    err_msg=f"Lag {lag} values don't match shifted original",
                 )
 
     @given(df=ohlcv_dataframe(), lags=lag_periods())
@@ -234,7 +248,7 @@ class TestRollingStatisticsCorrectness:
                 actual.values,
                 expected.values,
                 decimal=10,
-                err_msg=f"Rolling mean (window={window}) incorrect"
+                err_msg=f"Rolling mean (window={window}) incorrect",
             )
 
     @given(df=ohlcv_dataframe(), windows=rolling_windows())
@@ -282,20 +296,20 @@ class TestRollingStatisticsCorrectness:
 
             # Get valid indices (where all three are not NaN)
             valid_mask = (
-                ~result[min_col].isna() &
-                ~result[mean_col].isna() &
-                ~result[max_col].isna()
+                ~result[min_col].isna()
+                & ~result[mean_col].isna()
+                & ~result[max_col].isna()
             )
 
             if valid_mask.any():
-                assert (result.loc[valid_mask, min_col] <=
-                        result.loc[valid_mask, mean_col] + 1e-10).all(), (
-                    f"Rolling min > mean for window={window}"
-                )
-                assert (result.loc[valid_mask, mean_col] <=
-                        result.loc[valid_mask, max_col] + 1e-10).all(), (
-                    f"Rolling mean > max for window={window}"
-                )
+                assert (
+                    result.loc[valid_mask, min_col]
+                    <= result.loc[valid_mask, mean_col] + 1e-10
+                ).all(), f"Rolling min > mean for window={window}"
+                assert (
+                    result.loc[valid_mask, mean_col]
+                    <= result.loc[valid_mask, max_col] + 1e-10
+                ).all(), f"Rolling mean > max for window={window}"
 
 
 class TestTechnicalIndicatorsCorrectness:
@@ -345,7 +359,7 @@ class TestTechnicalIndicatorsCorrectness:
                 histogram[valid_mask].values,
                 expected_histogram[valid_mask].values,
                 decimal=10,
-                err_msg="MACD histogram != MACD line - signal line"
+                err_msg="MACD histogram != MACD line - signal line",
             )
 
     @given(series=numeric_series())
@@ -382,9 +396,7 @@ class TestTechnicalIndicatorsCorrectness:
         **Validates: Requirements 2.2**
         """
         indicators = TechnicalIndicators()
-        atr = indicators.calculate_atr(
-            df["high"], df["low"], df["close"], period=14
-        )
+        atr = indicators.calculate_atr(df["high"], df["low"], df["close"], period=14)
 
         valid_atr = atr.dropna()
         assert (valid_atr >= 0).all(), "ATR has negative values"
@@ -400,9 +412,7 @@ class TestTechnicalIndicatorsCorrectness:
         **Validates: Requirements 2.1**
         """
         indicators = TechnicalIndicators()
-        k, d = indicators.calculate_stochastic(
-            df["high"], df["low"], df["close"]
-        )
+        k, d = indicators.calculate_stochastic(df["high"], df["low"], df["close"])
 
         valid_k = k.dropna()
         valid_d = d.dropna()
@@ -423,9 +433,7 @@ class TestTechnicalIndicatorsCorrectness:
         **Validates: Requirements 2.1**
         """
         indicators = TechnicalIndicators()
-        williams_r = indicators.calculate_williams_r(
-            df["high"], df["low"], df["close"]
-        )
+        williams_r = indicators.calculate_williams_r(df["high"], df["low"], df["close"])
 
         valid_wr = williams_r.dropna()
         assert (valid_wr >= -100 - 1e-10).all(), "Williams %R below -100"
@@ -469,9 +477,7 @@ class TestVolatilityMeasuresCorrectness:
         **Validates: Requirements 2.2**
         """
         vol_calc = VolatilityCalculator()
-        vol = vol_calc.calculate_parkinson_volatility(
-            df["high"], df["low"], window=20
-        )
+        vol = vol_calc.calculate_parkinson_volatility(df["high"], df["low"], window=20)
 
         valid_vol = vol.dropna()
         assert (valid_vol >= 0).all(), "Parkinson volatility has negative values"
@@ -492,9 +498,7 @@ class TestVolatilityMeasuresCorrectness:
         )
 
         valid_vol = vol.dropna()
-        assert (valid_vol >= 0).all(), (
-            "Garman-Klass volatility has negative values"
-        )
+        assert (valid_vol >= 0).all(), "Garman-Klass volatility has negative values"
 
 
 class TestCalendarFeaturesCorrectness:
@@ -551,8 +555,7 @@ class TestCalendarFeaturesCorrectness:
         engineer = FeatureEngineer()
         result = engineer.create_calendar_features(df)
 
-        for col in ["day_of_week_sin", "day_of_week_cos",
-                    "month_sin", "month_cos"]:
+        for col in ["day_of_week_sin", "day_of_week_cos", "month_sin", "month_cos"]:
             assert (result[col] >= -1 - 1e-10).all(), f"{col} below -1"
             assert (result[col] <= 1 + 1e-10).all(), f"{col} above 1"
 
@@ -589,4 +592,59 @@ class TestCalendarFeaturesCorrectness:
         expected_weekend = (result["day_of_week"] >= 5).astype(int)
         assert (result["is_weekend"] == expected_weekend).all(), (
             "is_weekend doesn't match day_of_week >= 5"
+        )
+
+    @given(df=ohlcv_dataframe(min_rows=100, max_rows=300))
+    @settings(max_examples=50, deadline=None)
+    def test_holiday_features_no_nans_at_boundaries(self, df):
+        """
+        Property: days_to_nearest_holiday and days_from_nearest_holiday should not
+        contain NaNs at the boundaries when holidays are included.
+
+        **Feature: forecasting-research-pipeline, Property 3: Feature engineering
+        mathematical correctness**
+        **Validates: Requirements 2.4**
+        """
+        engineer = FeatureEngineer()
+        # Ensure holidays are included
+        result = engineer.create_calendar_features(
+            df, include_holidays=True, holiday_country="US"
+        )
+
+        # Check that the holiday columns exist
+        assert "is_holiday" in result.columns
+        assert "days_to_nearest_holiday" in result.columns
+        assert "days_from_nearest_holiday" in result.columns
+
+        assume(len(df) >= 30)
+
+        # Check the first 30 values for NaNs
+        assert not result["days_to_nearest_holiday"].head(30).isna().any(), (
+            "NaNs found at the start of days_to_nearest_holiday"
+        )
+        assert not result["days_from_nearest_holiday"].head(30).isna().any(), (
+            "NaNs found at the start of days_from_nearest_holiday"
+        )
+
+        # Check the last 30 values for NaNs
+        assert not result["days_to_nearest_holiday"].tail(30).isna().any(), (
+            "NaNs found at the end of days_to_nearest_holiday"
+        )
+        assert not result["days_from_nearest_holiday"].tail(30).isna().any(), (
+            "NaNs found at the end of days_from_nearest_holiday"
+        )
+
+        # Additionally, a general check that the proportion of NaNs is low
+        nan_proportion_to_next = result["days_to_nearest_holiday"].isna().sum() / len(
+            result
+        )
+        nan_proportion_from_last = result[
+            "days_from_nearest_holiday"
+        ].isna().sum() / len(result)
+
+        assert nan_proportion_to_next < 0.1, (
+            "High proportion of NaNs in days_to_nearest_holiday"
+        )
+        assert nan_proportion_from_last < 0.1, (
+            "High proportion of NaNs in days_from_nearest_holiday"
         )
