@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 import optuna
-import logging
+
 import shap
 from datetime import datetime
 from sklearn.model_selection import TimeSeriesSplit

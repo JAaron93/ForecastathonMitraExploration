@@ -23,7 +23,7 @@ class PipelineStateManager:
         run_id: str,
         step_name: str,
         data: Any = None,
-        context: Dict[str, Any] = None
+        context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Save intermediate state.

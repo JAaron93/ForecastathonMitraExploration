@@ -1,20 +1,20 @@
 """Evaluation metrics for classification, regression, and trading."""
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
-import logging
 
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
     brier_score_loss,
+    f1_score,
     log_loss,
-    mean_squared_error,
     mean_absolute_error,
+    mean_squared_error,
+    precision_score,
     r2_score,
+    recall_score,
     roc_auc_score,
 )
 
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MetricsResult:
     """Container for evaluation metrics."""
+
     metrics: Dict[str, float]
     metric_type: str
     metadata: Dict[str, Any]
@@ -39,10 +40,6 @@ class MetricsResult:
 
 class MetricsCalculator:
     """Calculate evaluation metrics for different model types."""
-
-    def __init__(self):
-        """Initialize MetricsCalculator."""
-        pass
 
     def calculate_classification_metrics(
         self,
@@ -79,12 +76,8 @@ class MetricsCalculator:
             metrics["precision"] = float(
                 precision_score(y_true, y_pred, zero_division=0)
             )
-            metrics["recall"] = float(
-                recall_score(y_true, y_pred, zero_division=0)
-            )
-            metrics["f1"] = float(
-                f1_score(y_true, y_pred, zero_division=0)
-            )
+            metrics["recall"] = float(recall_score(y_true, y_pred, zero_division=0))
+            metrics["f1"] = float(f1_score(y_true, y_pred, zero_division=0))
         else:
             metrics["precision"] = float(
                 precision_score(y_true, y_pred, average=average, zero_division=0)
@@ -116,23 +109,17 @@ class MetricsCalculator:
                     brier_score_loss(y_true, proba_for_metrics)
                 )
                 try:
-                    metrics["log_loss"] = float(
-                        log_loss(y_true, proba_for_metrics)
-                    )
+                    metrics["log_loss"] = float(log_loss(y_true, proba_for_metrics))
                 except ValueError:
                     metrics["log_loss"] = np.nan
 
                 try:
-                    metrics["roc_auc"] = float(
-                        roc_auc_score(y_true, proba_for_metrics)
-                    )
+                    metrics["roc_auc"] = float(roc_auc_score(y_true, proba_for_metrics))
                 except ValueError:
                     metrics["roc_auc"] = np.nan
             else:
                 try:
-                    metrics["log_loss"] = float(
-                        log_loss(y_true, proba_for_metrics)
-                    )
+                    metrics["log_loss"] = float(log_loss(y_true, proba_for_metrics))
                 except ValueError:
                     metrics["log_loss"] = np.nan
 
@@ -214,9 +201,9 @@ class MetricsCalculator:
         # Sharpe Ratio
         if len(strategy_returns) > 1 and np.std(strategy_returns) > 0:
             excess_returns = strategy_returns - risk_free_rate / periods_per_year
-            sharpe = (
-                np.mean(excess_returns) / np.std(excess_returns)
-            ) * np.sqrt(periods_per_year)
+            sharpe = (np.mean(excess_returns) / np.std(excess_returns)) * np.sqrt(
+                periods_per_year
+            )
             metrics["sharpe_ratio"] = float(sharpe)
         else:
             metrics["sharpe_ratio"] = 0.0
@@ -257,9 +244,9 @@ class MetricsCalculator:
         if len(downside_returns) > 1:
             downside_std = np.std(downside_returns)
             if downside_std > 0:
-                sortino = (
-                    np.mean(strategy_returns) / downside_std
-                ) * np.sqrt(periods_per_year)
+                sortino = (np.mean(strategy_returns) / downside_std) * np.sqrt(
+                    periods_per_year
+                )
                 metrics["sortino_ratio"] = float(sortino)
             else:
                 metrics["sortino_ratio"] = 0.0
@@ -300,9 +287,13 @@ class MetricsCalculator:
         total_samples = len(y_true)
 
         for i in range(n_bins):
-            bin_mask = (y_proba >= bin_boundaries[i]) & (y_proba < bin_boundaries[i + 1])
+            bin_mask = (y_proba >= bin_boundaries[i]) & (
+                y_proba < bin_boundaries[i + 1]
+            )
             if i == n_bins - 1:
-                bin_mask = (y_proba >= bin_boundaries[i]) & (y_proba <= bin_boundaries[i + 1])
+                bin_mask = (y_proba >= bin_boundaries[i]) & (
+                    y_proba <= bin_boundaries[i + 1]
+                )
 
             bin_size = bin_mask.sum()
             if bin_size > 0:
@@ -315,9 +306,13 @@ class MetricsCalculator:
         # Maximum Calibration Error (MCE)
         mce = 0.0
         for i in range(n_bins):
-            bin_mask = (y_proba >= bin_boundaries[i]) & (y_proba < bin_boundaries[i + 1])
+            bin_mask = (y_proba >= bin_boundaries[i]) & (
+                y_proba < bin_boundaries[i + 1]
+            )
             if i == n_bins - 1:
-                bin_mask = (y_proba >= bin_boundaries[i]) & (y_proba <= bin_boundaries[i + 1])
+                bin_mask = (y_proba >= bin_boundaries[i]) & (
+                    y_proba <= bin_boundaries[i + 1]
+                )
 
             bin_size = bin_mask.sum()
             if bin_size > 0:
@@ -331,13 +326,13 @@ class MetricsCalculator:
         # Note: sklearn brier_score_loss only supports binary classification
         try:
             if y_proba.ndim == 1 or (y_proba.ndim == 2 and y_proba.shape[1] == 2):
-                 # Ensure proper format for binary
-                 prob_pos = y_proba if y_proba.ndim == 1 else y_proba[:, 1]
-                 metrics["brier_score"] = float(brier_score_loss(y_true, prob_pos))
+                # Ensure proper format for binary
+                prob_pos = y_proba if y_proba.ndim == 1 else y_proba[:, 1]
+                metrics["brier_score"] = float(brier_score_loss(y_true, prob_pos))
             else:
-                 # Multiclass - sklearn brier_score_loss doesn't support multiclass directly
-                 # Set to NaN for consistency
-                 metrics["brier_score"] = np.nan
+                # Multiclass - sklearn brier_score_loss doesn't support multiclass directly
+                # Set to NaN for consistency
+                metrics["brier_score"] = np.nan
         except ValueError:
             metrics["brier_score"] = np.nan
 
@@ -360,7 +355,7 @@ class MetricsCalculator:
             y_proba: Predicted probabilities (for classification)
             task_type: Type of task ('classification' or 'regression')
             average: Averaging method for classification metrics
-        
+
         Returns:
             MetricsResult containing all calculated metrics
         """

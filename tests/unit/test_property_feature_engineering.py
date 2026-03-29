@@ -641,6 +641,23 @@ class TestCalendarFeaturesCorrectness:
                 f"High proportion of NaNs in {col} (threshold: {NAN_PROPORTION_THRESHOLD})"
             )
 
+        # NaN-consistency: days_to_nearest_holiday should be non-NaN exactly
+        # where at least one of (days_to_next_holiday, days_from_last_holiday)
+        # is non-NaN.  This prevents the fillna(inf) comparison below from
+        # masking rows where both source columns are NaN yet nearest is
+        # (incorrectly) treated as valid, or vice versa.
+        has_nearest = ~result["days_to_nearest_holiday"].isna()
+        has_either = (
+            ~result["days_to_next_holiday"].isna()
+            | ~result["days_from_last_holiday"].isna()
+        )
+        pd.testing.assert_series_equal(
+            has_nearest,
+            has_either,
+            check_names=False,
+            obj="NaN-consistency between nearest and next/last holiday distances",
+        )
+
         # Verify nearest calculation: nearest should be min(next, last)
         # Note: we use fillna(inf) for comparison if one is NaN (though logic ensures they shouldn't be at boundaries)
         next_dist = result["days_to_next_holiday"].fillna(np.inf)

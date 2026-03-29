@@ -54,6 +54,9 @@ def retry_with_backoff(
                     time.sleep(wait_time)
                     wait_time = min(wait_time * backoff_multiplier, max_backoff)
             
+        # This should be unreachable, but included for clarity
+        raise RuntimeError(f"Unexpected exit from retry loop for {func.__name__}")
+    
         return wrapper
     return decorator
 

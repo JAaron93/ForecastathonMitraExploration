@@ -1,16 +1,16 @@
 """Model comparison and evaluation framework."""
 
+import json
 import logging
-from typing import Any, Dict, List, Optional, Union, Tuple
+import os
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
-import os
-import json
-from datetime import datetime
 from src.models.base_model import BaseModel, ModelArtifact
+
 # Circular import avoidance: we assume base_model is independent
 from src.utils.experiment_tracking import ExperimentTracker
 
@@ -36,7 +36,7 @@ class ModelComparator:
     def add_model(self, model: BaseModel, name: str):
         """
         Manually add a model instance for comparison.
-        
+
         Args:
             model: Fitted BaseModel instance
             name: Identifier for the model
@@ -58,32 +58,33 @@ class ModelComparator:
         """
         data = []
         indices = []
-        
+
         for name, artifact in self.artifacts.items():
             metrics = artifact.validation_metrics.copy()
             # Also include training metrics with prefix
             for k, v in artifact.training_metrics.items():
                 metrics[f"train_{k}"] = v
-            
+
             # Filter if requested
             if metric_names:
-                filtered = {k: v for k, v in metrics.items() if any(m in k for m in metric_names)}
+                filtered = {
+                    k: v
+                    for k, v in metrics.items()
+                    if any(m in k for m in metric_names)
+                }
                 data.append(filtered)
             else:
                 data.append(metrics)
             indices.append(name)
-            
+
         if not data:
             return pd.DataFrame()
-            
+
         df = pd.DataFrame(data, index=indices)
         return df
 
     def analyze_robustness(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        regime_col: Optional[str] = None
+        self, X: pd.DataFrame, y: pd.Series, regime_col: Optional[str] = None
     ) -> Dict[str, pd.DataFrame]:
         """
         Evaluate models across different market regimes (or simply subsets).
@@ -91,22 +92,23 @@ class ModelComparator:
         Args:
             X: Feature DataFrame containing validation data
             y: Target Series
-            regime_col: Column name in X defining regimes (e.g. 'bull', 'bear'). 
+            regime_col: Column name in X defining regimes (e.g. 'bull', 'bear').
                         If None, one global regime is assumed.
 
         Returns:
             Dictionary mapping regime names to DataFrames of model metrics
         """
         from src.evaluation.metrics import MetricsCalculator
+
         calc = MetricsCalculator()
-        
+
         results = {}
-        
+
         if regime_col and regime_col in X.columns:
             regimes = X[regime_col].unique()
         else:
             regimes = ["global"]
-            
+
         for regime in regimes:
             if regime == "global":
                 X_sub = X
@@ -115,54 +117,62 @@ class ModelComparator:
                 mask = X[regime_col] == regime
                 X_sub = X[mask]
                 y_sub = y[mask]
-                
+
             if X_sub.empty:
                 continue
-                
+
             regime_metrics = []
             model_names = []
-            
+
             for name, model in self.loaded_models.items():
                 try:
                     preds = model.predict(X_sub)
-                    
+
                     # Determine task type (regression vs classification)
                     # Simple heuristic: floats vs ints or few unique values
                     # Better: check model type or metadata
-                    
+
                     # Ensure predictions are numpy array
                     preds = np.array(preds)
-                    
+
                     # Calculate both if unsure, or strictly one.
                     # For this pipeline, let's assume specific metrics based on model type metadata if available
                     # Or just calc all applicable
-                    
+
                     metrics = {}
-                    
+
                     # Heuristic to detect task type
                     is_regression = False
-                    if pd.api.types.is_numeric_dtype(y_sub) and len(np.unique(y_sub)) > 20:
+                    if (
+                        pd.api.types.is_numeric_dtype(y_sub)
+                        and len(np.unique(y_sub)) > 20
+                    ):
                         is_regression = True
-                    elif pd.api.types.is_numeric_dtype(preds) and len(np.unique(preds)) > 20: 
-                         is_regression = True
-                         
+                    elif (
+                        pd.api.types.is_numeric_dtype(preds)
+                        and len(np.unique(preds)) > 20
+                    ):
+                        is_regression = True
+
                     # Regression metrics
-                    if is_regression: 
+                    if is_regression:
                         metrics = calc.calculate_regression_metrics(y_sub.values, preds)
                     else:
                         # Classification
                         # Ensure y is int/str for classification if needed, but sklearn handles it if consistent
-                        metrics = calc.calculate_classification_metrics(y_sub.values, preds)
-                        
+                        metrics = calc.calculate_classification_metrics(
+                            y_sub.values, preds
+                        )
+
                     regime_metrics.append(metrics)
                     model_names.append(name)
-                    
+
                 except Exception as e:
                     logger.error(f"Failed to evaluate {name} on regime {regime}: {e}")
-            
+
             if regime_metrics:
                 results[str(regime)] = pd.DataFrame(regime_metrics, index=model_names)
-                
+
         return results
 
     def load_artifacts(self, run_ids: List[str]) -> None:
@@ -175,56 +185,87 @@ class ModelComparator:
         if not self.tracker:
             raise ValueError("ExperimentTracker not provided")
 
+        try:
+            # Import model classes once outside the loop
+            from src.models.ensemble import EnsembleModel
+            from src.models.lstm_model import LSTMModel
+            from src.models.mitra_model import MitraModel
+            from src.models.naive_bayes import NaiveBayesModel
+            from src.models.xgboost_model import XGBoostModel
+
+            model_map = {
+                "NaiveBayes": NaiveBayesModel,
+                "XGBoost": XGBoostModel,
+                "LSTM": LSTMModel,
+                "Mitra": MitraModel,
+                "Ensemble": EnsembleModel,
+            }
+        except ImportError as e:
+            logger.error(f"Failed to import model classes for comparison: {e}")
+            return
+
         for run_id in run_ids:
             run = self.tracker.get_run(run_id)
             if not run:
                 logger.warning(f"Run {run_id} not found")
                 continue
-                
+
             artifact_path = f"{self.tracker.artifact_location}/{run_id}/model"
-            
+            meta_path = f"{artifact_path}/metadata.json"
+
+            # Check if metadata exists before attempting to load
+            if not os.path.exists(meta_path):
+                logger.warning(
+                    f"No metadata found for run_id '{run_id}' at '{meta_path}'. Skipping."
+                )
+                continue
+
             try:
-                from src.models.naive_bayes import NaiveBayesModel
-                from src.models.xgboost_model import XGBoostModel
-                from src.models.lstm_model import LSTMModel
-                from src.models.mitra_model import MitraModel
-                from src.models.ensemble import EnsembleModel
-                
-                meta_path = f"{artifact_path}/metadata.json"
-                if not os.path.exists(meta_path):
-                    logger.warning(f"No metadata found for {run_id}")
-                    continue
-                    
-                with open(meta_path, 'r') as f:
+                # Load and parse metadata
+                with open(meta_path, "r") as f:
                     meta = json.load(f)
-                    
+
+                if not meta:
+                    logger.warning(f"Metadata is empty for run_id '{run_id}'. Skipping.")
+                    continue
+
                 model_type = meta.get("model_type")
-                
-                model_map = {
-                    "NaiveBayes": NaiveBayesModel,
-                    "XGBoost": XGBoostModel,
-                    "LSTM": LSTMModel,
-                    "Mitra": MitraModel,
-                    "Ensemble": EnsembleModel
-                }
-                
+                if not model_type:
+                    logger.warning(
+                        f"No 'model_type' found in metadata for run_id '{run_id}'. Skipping."
+                    )
+                    continue
+
                 model_cls = model_map.get(model_type)
                 if not model_cls:
-                    logger.warning(f"Unknown model type {model_type} for {run_id}")
+                    logger.warning(
+                        f"Unknown model type '{model_type}' for run_id '{run_id}'. Skipping."
+                    )
                     continue
-                    
+
+                # Handle model instantiation and loading in a specific try-except
                 try:
+                    # Instantiate and load model
                     model = self._instantiate_model(model_cls, meta)
                     model.load_model(artifact_path)
-                    
+
+                    # Store artifacts
                     self.loaded_models[run_id] = model
                     self.artifacts[run_id] = model.get_artifact()
-                    logger.info(f"Loaded model {model_type} from {run_id}")
+                    
+                    logger.info(
+                        f"Successfully loaded model '{model_type}' from run_id '{run_id}'."
+                    )
+
                 except Exception as e:
-                    logger.error(f"Failed to load artifact for {run_id}: {e}")
-            
+                    logger.error(
+                        f"Failed to instantiate or load model for run_id '{run_id}': {e}"
+                    )
+
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse metadata for run_id '{run_id}': {e}")
             except Exception as e:
-                logger.error(f"Failed to load artifact for {run_id}: {e}")
+                logger.error(f"Unexpected error loading metadata for run_id '{run_id}': {e}")
 
     def _instantiate_model(self, model_cls: type, meta: Dict[str, Any]) -> BaseModel:
         """
@@ -232,65 +273,38 @@ class ModelComparator:
         """
         kwargs = {
             "model_id": meta.get("model_id"),
-            "hyperparameters": meta.get("hyperparameters", {})
+            "hyperparameters": meta.get("hyperparameters", {}),
         }
-        
+
         model_type = meta.get("model_type")
         if model_type == "Ensemble":
-            if "models" not in kwargs:
-                kwargs["models"] = []
             hp = kwargs.get("hyperparameters", {})
             if "method" in hp:
                 kwargs["method"] = hp["method"]
             if "weights" in hp:
                 kwargs["weights"] = hp["weights"]
-            
-            # Extract models for positional argument if present, default to empty list
-            models = kwargs.pop("models", [])
+
+            # Ensemble requires models as positional argument; loaded models will be
+            # restored separately via load_model, so pass empty list for instantiation
+            models = meta.get("models", [])
             return model_cls(models, **kwargs)
-                
+
         try:
             return model_cls(**kwargs)
         except TypeError as e:
-            error_msg_suffix = "Ensure metadata contains all required constructor arguments."
+            error_msg_suffix = (
+                "Ensure metadata contains all required constructor arguments."
+            )
             if "unexpected keyword argument" in str(e):
                 try:
                     return model_cls()
                 except TypeError as e2:
-                     raise ValueError(f"Failed to instantiate {model_cls.__name__}: {str(e2)}. {error_msg_suffix}")
+                    raise ValueError(
+                        f"Failed to instantiate {model_cls.__name__}: {str(e2)}. {error_msg_suffix}"
+                    )
             elif "missing" in str(e) and "argument" in str(e):
-                raise ValueError(f"Failed to instantiate {model_cls.__name__}: {str(e)}. {error_msg_suffix}")
+                raise ValueError(
+                    f"Failed to instantiate {model_cls.__name__}: {str(e)}. {error_msg_suffix}"
+                )
             else:
                 raise e
-
-    def add_model(self, model: BaseModel, name: str):
-        """
-        Manually add a model instance for comparison.
-        """
-        self.loaded_models[name] = model
-        if model.is_fitted:
-            self.artifacts[name] = model.get_artifact()
-
-    def compare_metrics(self, metric_names: Optional[List[str]] = None) -> pd.DataFrame:
-        """
-        Compare metrics across loaded models.
-        """
-        data = []
-        indices = []
-        
-        for name, artifact in self.artifacts.items():
-            metrics = artifact.validation_metrics.copy()
-            for k, v in artifact.training_metrics.items():
-                metrics[f"train_{k}"] = v
-            
-            if metric_names:
-                filtered = {k: v for k, v in metrics.items() if any(m in k for m in metric_names)}
-                data.append(filtered)
-            else:
-                data.append(metrics)
-            indices.append(name)
-            
-        if not data:
-            return pd.DataFrame()
-            
-        return pd.DataFrame(data, index=indices)

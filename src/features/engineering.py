@@ -502,8 +502,9 @@ class FeatureEngineer:
                 "month_sin",
                 "month_cos",
                 "is_holiday",
-                "days_to_weekend",
-                "days_from_weekend",
+                "days_to_next_holiday",
+                "days_from_last_holiday",
+                "days_to_nearest_holiday",
             ]
         ]
         cross_asset_features = [

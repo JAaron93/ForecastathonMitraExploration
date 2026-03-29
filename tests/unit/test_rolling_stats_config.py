@@ -64,12 +64,13 @@ def test_calculate_rolling_stats_config_defaults():
             f"Missing expected feature: {feature}"
         )
 
-    # Value-level assertion for the median column
+    # Full-series value assertion for the median column (consistent with Test 1)
     expected_median = df["close"].rolling(window=10, min_periods=1).median()
-    # Choose index 15 (well within the 100-row dataframe)
-    checked_idx = 15
-    assert result_with_config["close_rolling_median_10"].iloc[checked_idx] == pytest.approx(
-        expected_median.iloc[checked_idx], abs=1e-6
+    pd.testing.assert_series_equal(
+        result_with_config["close_rolling_median_10"],
+        expected_median,
+        check_names=False,
+        atol=1e-6,
     )
 
     # Should NOT have std, min, max since they weren't in config

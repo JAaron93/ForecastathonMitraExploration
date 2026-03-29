@@ -126,7 +126,8 @@ class ExperimentTracker:
         else:
             self._experiment_id = None
             # Create local tracking directory
-            self.tracking_dir = Path(self.tracking_uri.replace("sqlite:///", ""))
+            db_path = Path(self.tracking_uri.replace("sqlite:///", ""))
+            self.tracking_dir = db_path.parent / "runs"
             self.tracking_dir.mkdir(parents=True, exist_ok=True)
             Path(self.artifact_location).mkdir(parents=True, exist_ok=True)
 
@@ -405,8 +406,7 @@ class ExperimentTracker:
                 logger.error(f"Failed to list runs: {e}")
         else:
             # Load from local files
-            tracking_dir = self.tracking_dir
-            for run_file in tracking_dir.glob("*.json"):
+            for run_file in self.tracking_dir.glob("*.json"):
                 with open(run_file, "r") as f:
                     runs.append(ExperimentRun.from_dict(json.load(f)))
                 if len(runs) >= max_results:

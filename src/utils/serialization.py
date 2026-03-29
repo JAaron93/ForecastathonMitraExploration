@@ -114,8 +114,10 @@ def load_joblib(
         raise ValueError(f"Failed to load joblib file: {str(e)}")
 
 
-def save_parquet(df: pd.DataFrame, path: Union[str, Path], **kwargs) -> None:
-    """Save DataFrame to Parquet."""
+def save_parquet(
+    df: Union[pd.DataFrame, pd.Series], path: Union[str, Path], **kwargs
+) -> None:
+    """Save DataFrame or Series to Parquet."""
     if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError(f"Expected pandas DataFrame or Series, got {type(df)}")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -132,9 +134,9 @@ def save_timeseries_data(data: TimeSeriesData, path: Union[str, Path]) -> None:
     """
     Save TimeSeriesData to a directory structure.
     """
-    if not hasattr(data, "features") or not hasattr(data, "targets"):
-         raise TypeError(f"Expected TimeSeriesData object, got {type(data)}")
-    
+    if not isinstance(data, TimeSeriesData):
+        raise TypeError(f"Expected TimeSeriesData object, got {type(data)}")
+
     save_dir = Path(path)
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -234,17 +236,42 @@ def load_timeseries_data(path: Union[str, Path]) -> TimeSeriesData:
     if not isinstance(split_indices, dict):
         split_indices = {}
     else:
-        # Filter to only include entries with str keys and list of int values
+        # Filter to only include entries with str keys and list-like of int-like values
         filtered_split_indices = {}
         for key, value in split_indices.items():
-            if (
-                isinstance(key, str)
-                and isinstance(value, list)
-                and all(isinstance(i, int) for i in value)
-            ):
+            # Check key type
+            if not isinstance(key, str):
+                logger.debug(
+                    f"Filtered invalid split_indices entry: key {key!r} is not a string "
+                    f"(type: {type(key).__name__})"
+                )
+                continue
+
+            # Check value type (allow list or np.ndarray)
+            if not isinstance(value, (list, np.ndarray)):
+                logger.debug(
+                    f"Filtered invalid split_indices entry for key {key!r}: "
+                    f"value is not a list or ndarray (type: {type(value).__name__})"
+                )
+                continue
+
+            # Convert to list for consistent internal representation if it's an ndarray
+            if isinstance(value, np.ndarray):
+                value = value.tolist()
+
+            # Verify all elements are integer-like
+            if all(isinstance(i, (int, np.integer)) for i in value):
                 filtered_split_indices[key] = value
             else:
-                logger.debug(f"Filtered invalid split_indices entry: {key!r}")
+                invalid_types = {
+                    type(i).__name__
+                    for i in value
+                    if not isinstance(i, (int, np.integer))
+                }
+                logger.debug(
+                    f"Filtered invalid split_indices entry for key {key!r}: "
+                    f"contains non-integer types ({', '.join(invalid_types)})"
+                )
         split_indices = filtered_split_indices
 
     return TimeSeriesData(
