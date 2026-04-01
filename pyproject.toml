@@ -25,6 +25,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "property: marks tests as property-based tests",
+    "mypy_validation: markers for mypy type validation tests",
 ]
 filterwarnings = [
     "default::DeprecationWarning",
@@ -49,7 +50,7 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
-fail_under = 80
+fail_under = 85
 show_missing = true
 
 [tool.coverage.html]

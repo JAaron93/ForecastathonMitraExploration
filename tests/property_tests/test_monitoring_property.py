@@ -158,15 +158,22 @@ def test_cleanup_policy():
         shutil.rmtree(tmp_dir)
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
+    # Pass a file-like URI so that db_path.parent == tmp_dir and
+    # tracking_dir resolves to tmp_dir / "runs":
+    #   db_path = Path(tracking_uri)
+    #   self.tracking_dir = db_path.parent / "runs"
+    tracking_uri = str(tmp_dir / "local.db")
+
     with patch("src.utils.experiment_tracking.MLFLOW_AVAILABLE", False):
         tracker = ExperimentTracker(
-            "cleanup_test", tracking_uri=str(tmp_dir), enable_monitoring=False
+            "cleanup_test", tracking_uri=tracking_uri, enable_monitoring=False
         )
 
+        # Create first run and backdate it
         old_run = tracker.start_run()
         tracker.end_run()
 
-        run_file = tmp_dir / f"{old_run.run_id}.json"
+        run_file = tracker.tracking_dir / f"{old_run.run_id}.json"
         with open(run_file, "r") as f:
             data = json.load(f)
 
@@ -176,14 +183,22 @@ def test_cleanup_policy():
         with open(run_file, "w") as f:
             json.dump(data, f)
 
+        # Create a second (recent) run
         tracker.start_run()
         tracker.end_run()
 
-        deleted = tracker.cleanup_experiments(older_than_days=90)
-    assert deleted == 1
+        # Verify both files exist before cleanup
+        before_cleanup = list(tracker.tracking_dir.glob("*.json"))
+        assert len(before_cleanup) == 2, f"Expected 2 run files before cleanup, got {len(before_cleanup)}"
 
-    remaining_files = list(tmp_dir.glob("*.json"))
-    assert len(remaining_files) == 1
+        # Cleanup should remove only the old run
+        deleted = tracker.cleanup_experiments(older_than_days=90)
+        assert deleted == 1
+
+        remaining_files = list(tracker.tracking_dir.glob("*.json"))
+        assert len(remaining_files) == 1
 
     if tmp_dir.exists():
         shutil.rmtree(tmp_dir)
+
+

@@ -113,7 +113,7 @@ class EnsembleModel(BaseModel):
         Returns:
             Array of predictions
         """
-        if not self.is_fitted and not all(m.is_fitted for m in self.models):
+        if not self.is_fitted:
              # If ensemble itself isn't marked fitted, but all sub-models are, we proceed.
              # This allows creating ensembles from pre-trained models.
              if all(m.is_fitted for m in self.models):
@@ -163,7 +163,7 @@ class EnsembleModel(BaseModel):
         Returns:
             Array of probability predictions
         """
-        if not self.is_fitted and not all(m.is_fitted for m in self.models):
+        if not self.is_fitted:
              if all(m.is_fitted for m in self.models):
                  self.is_fitted = True
              else:
