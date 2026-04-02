@@ -39,6 +39,7 @@ class TestSplitIndicesSerialization:
         assert restored.train_indices == s.train_indices
         assert restored.validation_indices == s.validation_indices
         assert restored.test_indices == s.test_indices
+        assert restored.metadata == s.metadata
 
 
 # ---------------------------------------------------------------------------

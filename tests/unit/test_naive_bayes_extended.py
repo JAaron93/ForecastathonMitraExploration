@@ -99,9 +99,16 @@ class TestFitPredict:
 
     def test_predict_with_reordered_columns(self, fitted_model):
         model, X, _ = fitted_model
-        X_reordered = X[["f3", "f1", "f2"]]  # different column order
+        # Get baseline predictions with original column order
+        baseline_preds = model.predict(X)
+        
+        # Reorder columns
+        X_reordered = X[["f3", "f1", "f2"]]
         preds = model.predict(X_reordered)
+        
+        # Verify predictions are the same regardless of column order
         assert len(preds) == len(X)
+        np.testing.assert_allclose(preds, baseline_preds)
 
     def test_predict_with_missing_feature_raises(self, fitted_model):
         model, X, _ = fitted_model

@@ -1,7 +1,8 @@
 """Extended tests for discretization to increase coverage."""
-import pytest
+
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.features.discretization import LabelDiscretizer
 
@@ -11,9 +12,9 @@ class TestLabelDiscretizerStrategies:
         y = pd.Series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
         discretizer = LabelDiscretizer(strategy="uniform", n_bins=3)
         labels = discretizer.fit_transform(y)
-        
+
         assert discretizer.bins is not None
-        assert len(discretizer.bins) == 4 # 3 bins means 4 edges
+        assert len(discretizer.bins) == 4  # 3 bins means 4 edges
         assert labels.nunique() == 3
         # Lowest should be 0, highest 2
         assert labels.min() == 0
@@ -23,15 +24,15 @@ class TestLabelDiscretizerStrategies:
         y = pd.Series([0, 5, 10, 15, 20])
         discretizer = LabelDiscretizer(strategy="fixed", bins=[0, 10, 20])
         labels = discretizer.fit_transform(y)
-        
+
         assert discretizer.bins is not None
         assert list(discretizer.bins) == [0, 10, 20]
-        # values < 0 or > 20 might be nan depending on cut, 0->0, 5->0, 10->0 or 1, 15->1, 20->1
+        assert list(labels) == [0, 0, 0, 1, 1]
         assert len(labels) == 5
 
     def test_fixed_strategy_missing_bins(self):
         y = pd.Series([1, 2, 3])
-        discretizer = LabelDiscretizer(strategy="fixed") # No bins provided
+        discretizer = LabelDiscretizer(strategy="fixed")  # No bins provided
         with pytest.raises(ValueError, match="Must provide 'bins' argument"):
             discretizer.fit(y)
 
@@ -53,8 +54,8 @@ class TestLabelDiscretizerTransform:
         y_train = pd.Series([1, 2, 3, 4, 5])
         discretizer = LabelDiscretizer(strategy="fixed", bins=[0, 6])
         discretizer.fit(y_train)
-        
-        y_test = pd.Series([-10, 10]) # Out of [0, 6] bounds
+
+        y_test = pd.Series([-10, 10])  # Out of [0, 6] bounds
         labels = discretizer.transform(y_test)
         # Should be filled with -1
         assert list(labels) == [-1, -1]
@@ -73,7 +74,7 @@ class TestLabelDiscretizerInverseTransform:
         y = pd.Series([1, 2, 3, 4, 5, 6])
         discretizer = LabelDiscretizer(strategy="uniform", n_bins=2)
         labels = discretizer.fit_transform(y)
-        
+
         inv = discretizer.inverse_transform(labels)
         assert isinstance(inv, pd.Series)
         # It should return bin centers
@@ -83,7 +84,7 @@ class TestLabelDiscretizerInverseTransform:
         y = np.array([1, 2, 3, 4, 5, 6])
         discretizer = LabelDiscretizer(strategy="uniform", n_bins=2)
         labels = discretizer.fit_transform(y)
-        
+
         inv = discretizer.inverse_transform(labels)
         assert isinstance(inv, pd.Series)
         assert not inv.isna().all()
@@ -92,7 +93,7 @@ class TestLabelDiscretizerInverseTransform:
         y = pd.Series([1, 2, 3])
         discretizer = LabelDiscretizer(strategy="uniform", n_bins=2)
         discretizer.fit(y)
-        
+
         # -1 is invalid/unknown label
         bad_labels = np.array([-1, 100])
         inv = discretizer.inverse_transform(bad_labels)

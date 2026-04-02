@@ -32,7 +32,7 @@ class NaiveBayesModel(BaseModel):
         
     @property
     def model_type(self) -> str:
-        return "naive_bayes"
+        return "NaiveBayes"
         
     def fit(
         self,

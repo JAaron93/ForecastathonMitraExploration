@@ -1,25 +1,30 @@
 """Extended unit tests for MitraModel covering save/load and adapt_to_regime."""
+
 import json
 import shutil
-import pytest
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, patch
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+import pytest
 
 from src.models.mitra_model import MitraModel
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def sample_context():
     """Returns a (X_context, y_context) pair large enough for all strategies."""
+    np.random.seed(42)
     n = 300
     index = pd.date_range("2023-01-01", periods=n, freq="D")
-    X = pd.DataFrame({"open": np.random.rand(n), "close": np.random.rand(n)}, index=index)
+    X = pd.DataFrame(
+        {"open": np.random.rand(n), "close": np.random.rand(n)}, index=index
+    )
     y = pd.Series(np.random.randn(n), index=index, name="returns")
     return X, y
 
@@ -27,6 +32,7 @@ def sample_context():
 @pytest.fixture
 def small_context():
     """Fewer rows than n_samples so the function returns all data."""
+    np.random.seed(42)
     n = 20
     index = pd.date_range("2023-01-01", periods=n, freq="D")
     X = pd.DataFrame({"open": np.random.rand(n)}, index=index)
@@ -37,6 +43,7 @@ def small_context():
 # ---------------------------------------------------------------------------
 # adapt_to_regime tests
 # ---------------------------------------------------------------------------
+
 
 class TestAdaptToRegime:
     def test_returns_all_when_insufficient_data(self, small_context):
@@ -75,7 +82,8 @@ class TestAdaptToRegime:
         model = MitraModel()
         X, y = sample_context
         X_s, y_s = model.adapt_to_regime(
-            X, y,
+            X,
+            y,
             strategy="volatility_matching",
             n_samples=50,
             target_volatility=0.5,
@@ -91,7 +99,8 @@ class TestAdaptToRegime:
         X, y = sample_context
         # Enormous window leaves very few valid rolling std values
         X_s, y_s = model.adapt_to_regime(
-            X, y,
+            X,
+            y,
             strategy="volatility_matching",
             n_samples=200,
             target_volatility=0.5,
@@ -111,8 +120,11 @@ class TestAdaptToRegime:
         X, y = sample_context
         with pytest.raises(ValueError, match="volatility_window must be positive"):
             model.adapt_to_regime(
-                X, y, strategy="volatility_matching",
-                target_volatility=0.5, volatility_window=0
+                X,
+                y,
+                strategy="volatility_matching",
+                target_volatility=0.5,
+                volatility_window=0,
             )
 
     def test_negative_target_volatility_raises(self, sample_context):
@@ -120,14 +132,18 @@ class TestAdaptToRegime:
         X, y = sample_context
         with pytest.raises(ValueError, match="target_volatility cannot be negative"):
             model.adapt_to_regime(
-                X, y, strategy="volatility_matching",
-                target_volatility=-1.0, volatility_window=5
+                X,
+                y,
+                strategy="volatility_matching",
+                target_volatility=-1.0,
+                volatility_window=5,
             )
 
 
 # ---------------------------------------------------------------------------
 # predict / predict_proba guard tests (no AutoGluon needed)
 # ---------------------------------------------------------------------------
+
 
 class TestPredictGuards:
     def test_predict_raises_when_not_fitted(self):
@@ -155,6 +171,7 @@ class TestPredictGuards:
 # ---------------------------------------------------------------------------
 # save_model / load_model with mocked predictor
 # ---------------------------------------------------------------------------
+
 
 class TestSaveLoad:
     def test_save_model_creates_metadata_json(self, tmp_path):

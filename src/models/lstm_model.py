@@ -59,7 +59,7 @@ class LSTMModel(BaseModel):
 
     @property
     def model_type(self) -> str:
-        return "lstm_keras"
+        return "LSTM"
         
     def _create_sequences(self, X: np.ndarray, y: Optional[np.ndarray] = None, seq_len: int = 10) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """

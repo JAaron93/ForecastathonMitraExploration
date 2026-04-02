@@ -3,7 +3,8 @@ import pytest
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, mock_open
+import json
 
 from src.data.loaders import DataLoader, ValidationResult
 
@@ -19,17 +20,16 @@ class TestDataLoaderExtended:
         dl = DataLoader(log_dir=str(tmp_path / "new_dir"))
         assert (tmp_path / "new_dir").exists()
         
-    @patch("pandas.read_parquet")
+    @patch("src.data.loaders.pd.read_parquet")
     def test_load_parquet_parse_error(self, mock_read, tmp_path):
-        import pandas.errors
-        mock_read.side_effect = pandas.errors.ParserError("test")
+        mock_read.side_effect = pd.errors.ParserError("test")
         dl = DataLoader()
         f = tmp_path / "file.parquet"
         f.touch()
-        with pytest.raises(pandas.errors.ParserError, match="Error parsing Parquet file"):
+        with pytest.raises(pd.errors.ParserError, match="Error parsing Parquet file"):
             dl.load_parquet(str(f))
 
-    @patch("pandas.read_parquet")
+    @patch("src.data.loaders.pd.read_parquet")
     def test_load_parquet_os_error(self, mock_read, tmp_path):
         mock_read.side_effect = OSError("test")
         dl = DataLoader()
@@ -71,9 +71,35 @@ class TestDataLoaderExtended:
         assert dl._dtype_compatible("int32", "int64")
         assert dl._dtype_compatible("datetime64[ns]", "datetime64")
 
-    @patch("builtins.open")
-    def test_log_validation_result(self, mock_open, tmp_path):
+    @patch("src.data.loaders.open", new_callable=mock_open)
+    def test_log_validation_result(self, m_open, tmp_path):
         dl = DataLoader(log_dir=str(tmp_path))
-        vr = ValidationResult(is_valid=True, errors=[], warnings=[], schema_violations={})
-        dl.log_validation_result(vr, "run_1", "/some/path")
-        mock_open.assert_called_once()
+        vr = ValidationResult(
+            is_valid=True,
+            errors=["err1"],
+            warnings=["warn1"],
+            schema_violations={"col1": "type_mismatch"}
+        )
+        run_id = "run_1"
+        source_path = "/some/path"
+        dl.log_validation_result(vr, run_id, source_path)
+
+        # Verify open was called with expected path and mode
+        expected_log_path = Path(tmp_path) / f"{run_id}_validation_report.json"
+        m_open.assert_called_once_with(expected_log_path, "w")
+
+        # Capture and verify written content
+        handle = m_open()
+        # Collect all chunks passed to write()
+        written_data = "".join(call.args[0] for call in handle.write.call_args_list)
+        log_content = json.loads(written_data)
+
+        assert log_content["run_id"] == run_id
+        assert log_content["source_path"] == source_path
+        assert "timestamp" in log_content
+        
+        val_res = log_content["validation_result"]
+        assert val_res["is_valid"] is True
+        assert val_res["errors"] == ["err1"]
+        assert val_res["warnings"] == ["warn1"]
+        assert val_res["schema_violations"] == {"col1": "type_mismatch"}

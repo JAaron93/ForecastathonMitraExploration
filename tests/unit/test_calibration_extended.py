@@ -1,7 +1,7 @@
 """Unit tests for CalibrationAnalyzer covering uncovered lines."""
 import pytest
 import numpy as np
-from src.evaluation.calibration import CalibrationAnalyzer, CalibrationCurve
+from src.evaluation.calibration import CalibrationAnalyzer
 
 
 # ---------------------------------------------------------------------------
@@ -11,18 +11,18 @@ from src.evaluation.calibration import CalibrationAnalyzer, CalibrationCurve
 @pytest.fixture
 def binary_data():
     """Simple binary classification data."""
-    np.random.seed(42)
+    rng = np.random.default_rng(42)
     n = 500
-    y_true = np.random.randint(0, 2, n)
-    y_proba = np.clip(np.random.uniform(0, 1, n), 0.01, 0.99)
+    y_true = rng.integers(0, 2, n)
+    y_proba = np.clip(rng.uniform(0, 1, n), 0.01, 0.99)
     return y_true, y_proba
 
 
 @pytest.fixture
-def perfect_data():
-    """Perfectly calibrated data."""
+def sample_calibrated_data():
+    """Sample calibration data with known properties."""
     y_true = np.array([1, 1, 0, 0, 1])
-    y_proba = np.array([0.95, 0.85, 0.05, 0.15, 0.75])
+    y_proba = np.array([0.9, 0.8, 0.1, 0.2, 0.7])
     return y_true, y_proba
 
 
@@ -46,18 +46,30 @@ class TestComputeCalibrationCurve:
     def test_2d_proba_second_class_extracted(self, analyzer):
         y_true = np.array([0, 1, 0, 1])
         y_proba_2d = np.array([[0.9, 0.1], [0.3, 0.7], [0.8, 0.2], [0.4, 0.6]])
+        # Expected extracted probabilities: [0.1, 0.7, 0.2, 0.6]
+        expected_proba = y_proba_2d[:, 1]
+        
         curve = analyzer.compute_calibration_curve(y_true, y_proba_2d)
-        assert curve is not None
+        
+        # Manually compute expected bin_confidences for validation
+        expected_curve = analyzer.compute_calibration_curve(y_true, expected_proba)
+        
+        assert np.allclose(curve.bin_confidences, expected_curve.bin_confidences, equal_nan=True)
+        assert np.allclose(curve.bin_accuracies, expected_curve.bin_accuracies, equal_nan=True)
+        assert np.array_equal(curve.bin_counts, expected_curve.bin_counts)
 
     def test_2d_proba_wrong_shape_raises(self, analyzer):
+        rng = np.random.default_rng(42)
         y_true = np.array([0, 1, 0])
-        y_proba = np.random.rand(3, 3)  # 3 classes – invalid
+        # 3 classes – invalid
+        y_proba = rng.random((3, 3))
         with pytest.raises(ValueError, match="shape"):
             analyzer.compute_calibration_curve(y_true, y_proba)
 
     def test_3d_proba_raises(self, analyzer):
+        rng = np.random.default_rng(42)
         y_true = np.array([0, 1])
-        y_proba = np.random.rand(2, 2, 2)  # 3D – invalid
+        y_proba = rng.random((2, 2, 2))  # 3D – invalid
         with pytest.raises(ValueError, match="1D or 2D"):
             analyzer.compute_calibration_curve(y_true, y_proba)
 
@@ -91,7 +103,13 @@ class TestComputeReliabilityDiagramData:
     def test_output_keys(self, analyzer, binary_data):
         y_true, y_proba = binary_data
         data = analyzer.compute_reliability_diagram_data(y_true, y_proba)
-        for key in ("mean_predicted_value", "fraction_of_positives", "bin_counts", "bin_centers"):
+        expected_keys = (
+            "mean_predicted_value",
+            "fraction_of_positives",
+            "bin_counts",
+            "bin_centers",
+        )
+        for key in expected_keys:
             assert key in data
 
 
@@ -104,6 +122,11 @@ class TestComputeECE:
         y_true, y_proba = binary_data
         ece = analyzer.compute_ece(y_true, y_proba)
         assert ece >= 0.0
+
+    def test_ece_with_sample_data(self, analyzer, sample_calibrated_data):
+        y_true, y_proba = sample_calibrated_data
+        ece = analyzer.compute_ece(y_true, y_proba)
+        assert 0.0 <= ece <= 1.0
 
     def test_ece_perfect_calibration_near_zero(self, analyzer):
         # Synthetic perfectly calibrated data in one bin
@@ -166,24 +189,18 @@ class TestGetCalibrationSummary:
 class TestPlottingFunctions:
     def test_plot_calibration_curve_returns_axes(self, binary_data):
         from src.evaluation.calibration import plot_calibration_curve
-        import matplotlib
-        matplotlib.use("Agg")
         y_true, y_proba = binary_data
         ax = plot_calibration_curve(y_true, y_proba)
         assert ax is not None
 
     def test_plot_calibration_histogram_returns_axes(self, binary_data):
         from src.evaluation.calibration import plot_calibration_histogram
-        import matplotlib
-        matplotlib.use("Agg")
         _, y_proba = binary_data
         ax = plot_calibration_histogram(y_proba)
         assert ax is not None
 
     def test_plot_histogram_with_2d_proba(self, binary_data):
         from src.evaluation.calibration import plot_calibration_histogram
-        import matplotlib
-        matplotlib.use("Agg")
         y_true, y_proba = binary_data
         y_proba_2d = np.stack([1 - y_proba, y_proba], axis=1)
         ax = plot_calibration_histogram(y_proba_2d)

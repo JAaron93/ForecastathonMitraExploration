@@ -25,7 +25,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "property: marks tests as property-based tests",
-    "mypy_validation: markers for mypy type validation tests",
+    "mypy_validation: marker for mypy type validation tests",
 ]
 filterwarnings = [
     "default::DeprecationWarning",

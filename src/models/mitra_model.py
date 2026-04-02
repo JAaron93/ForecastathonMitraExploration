@@ -50,7 +50,7 @@ class MitraModel(BaseModel):
 
     @property
     def model_type(self) -> str:
-        return "mitra"
+        return "Mitra"
 
     def fit(
         self,

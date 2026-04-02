@@ -1,7 +1,8 @@
 """Ensemble model implementation."""
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+import threading
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -39,15 +40,16 @@ class EnsembleModel(BaseModel):
         self.models = models
         self.weights = weights
         self.method = method
+        self._lock = threading.Lock()
         
         if self.weights is not None:
-             if len(self.weights) != len(self.models):
-                 raise ValueError("Number of weights must match number of models")
-             if not np.isclose(sum(self.weights), 1.0):
-                 # Normalize weights if they don't sum to 1
-                 total = sum(self.weights)
-                 self.weights = [w / total for w in self.weights]
-                 logger.warning("Weights normalized to sum to 1.0")
+            if len(self.weights) != len(self.models):
+                raise ValueError("Number of weights must match number of models")
+            if not np.isclose(sum(self.weights), 1.0):
+                # Normalize weights if they don't sum to 1
+                total = sum(self.weights)
+                self.weights = [w / total for w in self.weights]
+                logger.warning("Weights normalized to sum to 1.0")
         elif self.method == "weighted_average":
             # Default to equal weights if not provided but requested
             self.weights = [1.0 / len(self.models)] * len(self.models)
@@ -65,6 +67,30 @@ class EnsembleModel(BaseModel):
     def model_type(self) -> str:
         """Return the model type identifier."""
         return "Ensemble"
+
+    def _ensure_fitted(self, raise_error: bool = True) -> bool:
+        """
+        Thread-safe check to ensure the ensemble is fitted.
+        If not explicitly fitted, checks if all base models are fitted.
+
+        Args:
+            raise_error: Whether to raise ValueError if not fitted
+
+        Returns:
+            True if fitted, False otherwise
+        """
+        if self.is_fitted:
+            return True
+
+        with self._lock:
+            if not self.is_fitted:
+                if all(m.is_fitted for m in self.models):
+                    self.is_fitted = True
+                elif raise_error:
+                    raise ValueError("Model is not fitted")
+                else:
+                    return False
+        return True
 
     def fit(
         self,
@@ -94,8 +120,10 @@ class EnsembleModel(BaseModel):
         for i, model in enumerate(self.models):
             logger.info(f"Training model {i+1}/{len(self.models)}: {model.model_type}")
             model.fit(X, y, validation_data=validation_data, **kwargs)
-            
-        self.is_fitted = True
+
+        with self._lock:
+            self.is_fitted = True
+
         self.training_time = sum(m.training_time for m in self.models)
         
         # Aggregate metrics if available
@@ -113,31 +141,26 @@ class EnsembleModel(BaseModel):
         Returns:
             Array of predictions
         """
-        if not self.is_fitted:
-             # If ensemble itself isn't marked fitted, but all sub-models are, we proceed.
-             # This allows creating ensembles from pre-trained models.
-             if all(m.is_fitted for m in self.models):
-                 self.is_fitted = True
-             else:
-                raise ValueError("Model is not fitted")
-                
+        self._ensure_fitted()
         self._validate_input(X)
         
         # Collect predictions from all models
-        predictions = []
+        predictions_list: List[np.ndarray] = []
         for model in self.models:
-            predictions.append(model.predict(X))
-            
-        predictions = np.array(predictions)
-        
+            predictions_list.append(model.predict(X))
+
+        predictions = np.array(predictions_list)
+
         if self.method == "average":
-            return np.mean(predictions, axis=0)
-            
+            result = np.mean(predictions, axis=0)
+            return result if isinstance(result, np.ndarray) else np.array(result)
+
         elif self.method == "weighted_average":
             if self.weights is None:
                 self.weights = [1.0 / len(self.models)] * len(self.models)
-            return np.average(predictions, axis=0, weights=self.weights)
-            
+            result = np.average(predictions, axis=0, weights=self.weights)
+            return result if isinstance(result, np.ndarray) else np.array(result)
+
         elif self.method == "voting":
             # Majority voting for classification
             # Transpose to get (n_samples, n_models)
@@ -149,7 +172,7 @@ class EnsembleModel(BaseModel):
                 # Get the value with max count
                 final_preds.append(values[np.argmax(counts)])
             return np.array(final_preds)
-            
+
         else:
             raise ValueError(f"Unknown ensemble method: {self.method}")
 
@@ -163,40 +186,35 @@ class EnsembleModel(BaseModel):
         Returns:
             Array of probability predictions
         """
-        if not self.is_fitted:
-             if all(m.is_fitted for m in self.models):
-                 self.is_fitted = True
-             else:
-                raise ValueError("Model is not fitted")
-
+        self._ensure_fitted()
         self._validate_input(X)
         
         # Collect proba predictions
-        probas = []
+        probas_list: List[np.ndarray] = []
         for model in self.models:
             try:
-                probas.append(model.predict_proba(X))
+                probas_list.append(model.predict_proba(X))
             except NotImplementedError:
                 logger.warning(f"Model {model.model_type} does not support predict_proba, skipping in probability ensemble")
         
-        if not probas:
+        if not probas_list:
             raise NotImplementedError("No base models support predict_proba")
             
-        probas = np.array(probas)
+        probas = np.array(probas_list)
         
         # For probabilities, we usually average (weighted or not)
         # Voting applies to hard labels, not probabilities usually
         if self.method in ["average", "voting"]:  # Treat voting as average for probabilities
-            return np.mean(probas, axis=0)
-            
+            result = np.mean(probas, axis=0)
+            return result if isinstance(result, np.ndarray) else np.array(result)
+
         elif self.method == "weighted_average":
-             # We need to filter weights to match models that supported proba if some were skipped
-             # But for now assuming all models support it if calling predict_proba
             if self.weights is None:
                 eff_weights = [1.0 / len(probas)] * len(probas)
             else:
                 eff_weights = self.weights
-            return np.average(probas, axis=0, weights=eff_weights)
+            result = np.average(probas, axis=0, weights=eff_weights)
+            return result if isinstance(result, np.ndarray) else np.array(result)
             
         else:
              raise ValueError(f"Unknown ensemble method: {self.method}")
@@ -208,14 +226,11 @@ class EnsembleModel(BaseModel):
         Returns:
             Dictionary mapping feature names to importance scores
         """
-        if not self.is_fitted:
-             if all(m.is_fitted for m in self.models):
-                 self.is_fitted = True
-             else:
-                return {}
+        if not self._ensure_fitted(raise_error=False):
+            return {}
         
         # Aggregate importance from all models
-        total_importance = {}
+        total_importance: Dict[str, float] = {}
         count = 0
         
         for model in self.models:

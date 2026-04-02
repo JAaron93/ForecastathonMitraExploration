@@ -17,8 +17,8 @@ from src.utils.experiment_tracking import ExperimentTracker
 logger = logging.getLogger(__name__)
 
 # Model type sets for task detection
-REGRESSION_MODEL_TYPES = {"lstm_keras"}
-CLASSIFICATION_MODEL_TYPES = {"naivebayes", "mitra"}
+REGRESSION_MODEL_TYPES = {"LSTM", "XGBoost"}
+CLASSIFICATION_MODEL_TYPES = {"NaiveBayes", "Mitra", "Ensemble"}
 
 
 class ModelComparator:
@@ -148,7 +148,7 @@ class ModelComparator:
                     # Determine task type (regression vs classification)
                     # Priority: y_sub properties -> model metadata -> model attributes -> default
                     is_regression = False
-                    if pd.api.types.is_numeric_dtype(y_sub) and y_sub.nunique() > 20:
+                    if pd.api.types.is_numeric_dtype(y_sub) and y_sub.nunique(dropna=False) > 20:
                         is_regression = True
                     else:
                         # Fallback: Check model metadata for explicit task type
@@ -160,7 +160,7 @@ class ModelComparator:
                             is_regression = False
                         else:
                             # Secondary fallback: Check model-specific indicators
-                            m_type = getattr(model, "model_type", "").lower()
+                            m_type = getattr(model, "model_type", "")
                             obj = getattr(model, "objective", "").lower()
 
                             if "reg:" in obj or m_type in REGRESSION_MODEL_TYPES:

@@ -1,5 +1,8 @@
 """Pytest configuration and shared fixtures."""
 
+import matplotlib
+matplotlib.use("Agg")
+
 import pytest
 import pandas as pd
 import numpy as np
