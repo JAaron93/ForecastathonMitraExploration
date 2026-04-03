@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelArtifact:
     """Container for model artifacts and metadata."""
+
     model_id: str
     model_type: str
     model_object: Any
@@ -84,7 +85,7 @@ class BaseModel(ABC):
         X: pd.DataFrame,
         y: pd.Series,
         validation_data: Optional[tuple] = None,
-        **kwargs
+        **kwargs,
     ) -> "BaseModel":
         """
         Fit the model to training data.
@@ -181,7 +182,7 @@ class BaseModel(ABC):
         model_path = load_dir / "model.joblib"
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found at {model_path}")
-        
+
         self.model_object = joblib.load(model_path)
 
         # Load metadata
@@ -238,6 +239,12 @@ class BaseModel(ABC):
             raise ValueError("X cannot be empty")
         if X.isnull().any().any():
             logger.warning("Input contains NaN values")
+
+    @classmethod
+    def load(cls, path: str) -> "BaseModel":
+        """Class method to load model from disk."""
+        instance = cls()
+        return instance.load_model(path)
 
     def __repr__(self) -> str:
         return (

@@ -3,7 +3,7 @@
 import json
 import shutil
 from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd

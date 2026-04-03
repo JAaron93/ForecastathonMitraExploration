@@ -107,3 +107,4 @@ class TestLabelDiscretizerInverseTransform:
         # Don't fit
         inv = discretizer.inverse_transform(y)
         np.testing.assert_array_equal(inv, y)
+

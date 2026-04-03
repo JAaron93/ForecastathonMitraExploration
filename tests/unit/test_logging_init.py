@@ -1,13 +1,15 @@
 """Unit tests for src/utils/logging_config.py."""
 import json
 import logging
-import pytest
+import sys
 
 from src.utils.logging_config import JSONFormatter
 
 
 class TestJSONFormatter:
-    def _make_record(self, msg: str, level: int = logging.INFO, **extra) -> logging.LogRecord:
+    def _make_record(
+        self, msg: str, level: int = logging.INFO, **extra
+    ) -> logging.LogRecord:
         record = logging.LogRecord(
             name="test.logger",
             level=level,
@@ -32,7 +34,10 @@ class TestJSONFormatter:
         formatter = JSONFormatter()
         record = self._make_record("test")
         parsed = json.loads(formatter.format(record))
-        for key in ("timestamp", "level", "logger", "message", "module", "funcName", "lineNo"):
+        required_keys = (
+            "timestamp", "level", "logger", "message", "module", "funcName", "lineNo"
+        )
+        for key in required_keys:
             assert key in parsed, f"Missing key: {key}"
 
     def test_format_level_name(self):
@@ -46,7 +51,6 @@ class TestJSONFormatter:
         try:
             raise ValueError("boom")
         except ValueError:
-            import sys
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
@@ -60,7 +64,9 @@ class TestJSONFormatter:
 
     def test_format_with_extra_props(self):
         formatter = JSONFormatter()
-        record = self._make_record("extra test", props={"request_id": "abc-123"})
+        record = self._make_record(
+            "extra test", props={"request_id": "abc-123"}
+        )
         parsed = json.loads(formatter.format(record))
         assert parsed["request_id"] == "abc-123"
 

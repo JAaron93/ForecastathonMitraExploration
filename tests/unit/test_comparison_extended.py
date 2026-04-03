@@ -2,7 +2,7 @@
 
 import json
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import numpy as np
 import pandas as pd
@@ -178,32 +178,32 @@ def test_load_artifacts_missing_metadata(mock_exists, comparator):
 
 @patch("os.path.exists")
 @patch("builtins.open")
-def test_load_artifacts_empty_metadata(mock_open, mock_exists, comparator):
+def test_load_artifacts_empty_metadata(open_mock, mock_exists, comparator):
     comparator.tracker.get_run.return_value = {"id": "run1"}
     mock_exists.return_value = True
     # Return empty JSON string or {}
-    mock_open.return_value = mock_open(read_data="{}")
+    open_mock.side_effect = mock_open(read_data="{}")
     comparator.load_artifacts(["run1"])
     assert "run1" not in comparator.loaded_models
 
 
 @patch("os.path.exists")
 @patch("builtins.open")
-def test_load_artifacts_missing_model_type(mock_open, mock_exists, comparator):
+def test_load_artifacts_missing_model_type(open_mock, mock_exists, comparator):
     comparator.tracker.get_run.return_value = {"id": "run1"}
     mock_exists.return_value = True
     meta = {"some_other_key": "val"}
-    mock_open.return_value.__enter__.return_value.read.return_value = json.dumps(meta)
+    open_mock.side_effect = mock_open(read_data=json.dumps(meta))
     comparator.load_artifacts(["run1"])
     assert "run1" not in comparator.loaded_models
 
 
 @patch("os.path.exists")
 @patch("builtins.open")
-def test_load_artifacts_json_decode_error(mock_open, mock_exists, comparator):
+def test_load_artifacts_json_decode_error(open_mock, mock_exists, comparator):
     comparator.tracker.get_run.return_value = {"id": "run1"}
     mock_exists.return_value = True
-    mock_open.return_value.__enter__.return_value.read.return_value = "invalid json"
+    open_mock.side_effect = mock_open(read_data="invalid json")
     comparator.load_artifacts(["run1"])
     assert "run1" not in comparator.loaded_models
 

@@ -41,7 +41,7 @@ class EnsembleModel(BaseModel):
         self.weights = weights
         self.method = method
         self._lock = threading.Lock()
-        
+
         if self.weights is not None:
             if len(self.weights) != len(self.models):
                 raise ValueError("Number of weights must match number of models")
@@ -56,12 +56,14 @@ class EnsembleModel(BaseModel):
 
         # Update hyperparameters
         self.hyperparameters = self.hyperparameters or {}
-        self.hyperparameters.update({
-            "method": method,
-            "n_models": len(models),
-            "model_types": [m.model_type for m in models],
-            "weights": self.weights
-        })
+        self.hyperparameters.update(
+            {
+                "method": method,
+                "n_models": len(models),
+                "model_types": [m.model_type for m in models],
+                "weights": self.weights,
+            }
+        )
 
     @property
     def model_type(self) -> str:
@@ -97,14 +99,14 @@ class EnsembleModel(BaseModel):
         X: pd.DataFrame,
         y: pd.Series,
         validation_data: Optional[tuple] = None,
-        **kwargs
+        **kwargs,
     ) -> "EnsembleModel":
         """
         Fit all base models.
-        
+
         Note: In many cases, ensembles are created from already fitted models.
         This method is provided for cases where training from scratch is needed.
-        
+
         Args:
             X: Feature DataFrame
             y: Target Series
@@ -116,19 +118,21 @@ class EnsembleModel(BaseModel):
         """
         self._validate_input(X)
         self.feature_names = X.columns.tolist()
-        
+
         for i, model in enumerate(self.models):
-            logger.info(f"Training model {i+1}/{len(self.models)}: {model.model_type}")
+            logger.info(
+                f"Training model {i + 1}/{len(self.models)}: {model.model_type}"
+            )
             model.fit(X, y, validation_data=validation_data, **kwargs)
 
         with self._lock:
             self.is_fitted = True
 
         self.training_time = sum(m.training_time for m in self.models)
-        
+
         # Aggregate metrics if available
         self._aggregate_metrics()
-        
+
         return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -143,7 +147,7 @@ class EnsembleModel(BaseModel):
         """
         self._ensure_fitted()
         self._validate_input(X)
-        
+
         # Collect predictions from all models
         predictions_list: List[np.ndarray] = []
         for model in self.models:
@@ -152,14 +156,12 @@ class EnsembleModel(BaseModel):
         predictions = np.array(predictions_list)
 
         if self.method == "average":
-            result = np.mean(predictions, axis=0)
-            return result if isinstance(result, np.ndarray) else np.array(result)
+            return np.mean(predictions, axis=0)
 
         elif self.method == "weighted_average":
             if self.weights is None:
                 self.weights = [1.0 / len(self.models)] * len(self.models)
-            result = np.average(predictions, axis=0, weights=self.weights)
-            return result if isinstance(result, np.ndarray) else np.array(result)
+            return np.average(predictions, axis=0, weights=self.weights)
 
         elif self.method == "voting":
             # Majority voting for classification
@@ -188,36 +190,50 @@ class EnsembleModel(BaseModel):
         """
         self._ensure_fitted()
         self._validate_input(X)
-        
+
         # Collect proba predictions
         probas_list: List[np.ndarray] = []
-        for model in self.models:
+        successful_indices: List[int] = []
+        for i, model in enumerate(self.models):
             try:
                 probas_list.append(model.predict_proba(X))
+                successful_indices.append(i)
             except NotImplementedError:
-                logger.warning(f"Model {model.model_type} does not support predict_proba, skipping in probability ensemble")
-        
+                logger.warning(
+                    f"Model {model.model_type} does not support predict_proba, skipping in probability ensemble"
+                )
+
         if not probas_list:
             raise NotImplementedError("No base models support predict_proba")
-            
+
         probas = np.array(probas_list)
-        
+
         # For probabilities, we usually average (weighted or not)
         # Voting applies to hard labels, not probabilities usually
-        if self.method in ["average", "voting"]:  # Treat voting as average for probabilities
+        if self.method in [
+            "average",
+            "voting",
+        ]:  # Treat voting as average for probabilities
             result = np.mean(probas, axis=0)
             return result if isinstance(result, np.ndarray) else np.array(result)
 
         elif self.method == "weighted_average":
             if self.weights is None:
-                eff_weights = [1.0 / len(probas)] * len(probas)
+                eff_weights = np.ones(len(probas)) / len(probas)
             else:
-                eff_weights = self.weights
+                # Filter weights to only include successful models
+                eff_weights = np.array([self.weights[i] for i in successful_indices])
+                # Normalize so they sum to 1.0
+                if np.sum(eff_weights) > 0:
+                    eff_weights = eff_weights / np.sum(eff_weights)
+                else:
+                    eff_weights = np.ones(len(probas)) / len(probas)
+
             result = np.average(probas, axis=0, weights=eff_weights)
             return result if isinstance(result, np.ndarray) else np.array(result)
-            
+
         else:
-             raise ValueError(f"Unknown ensemble method: {self.method}")
+            raise ValueError(f"Unknown ensemble method: {self.method}")
 
     def get_feature_importance(self) -> Dict[str, float]:
         """
@@ -228,21 +244,21 @@ class EnsembleModel(BaseModel):
         """
         if not self._ensure_fitted(raise_error=False):
             return {}
-        
+
         # Aggregate importance from all models
         total_importance: Dict[str, float] = {}
         count = 0
-        
+
         for model in self.models:
             importance = model.get_feature_importance()
             if importance:
                 for feat, score in importance.items():
                     total_importance[feat] = total_importance.get(feat, 0.0) + score
                 count += 1
-                
+
         if count == 0:
             return {}
-            
+
         # Average
         return {k: v / count for k, v in total_importance.items()}
 
@@ -250,19 +266,23 @@ class EnsembleModel(BaseModel):
         """Aggregate metrics from base models."""
         self.training_metrics = {}
         self.validation_metrics = {}
-        
+
         # Simple averaging of metrics for now
         # Ideally we would evaluate the ensemble itself, but that requires X and y
         # This is just a summary of component performance
         for metric_type in ["training_metrics", "validation_metrics"]:
-             target_dict = getattr(self, metric_type)
-             
-             # Collect all keys
-             all_keys = set()
-             for model in self.models:
-                 all_keys.update(getattr(model, metric_type).keys())
-                 
-             for key in all_keys:
-                 values = [getattr(m, metric_type).get(key) for m in self.models if key in getattr(m, metric_type)]
-                 if values:
-                     target_dict[f"mean_{key}"] = float(np.mean(values))
+            target_dict = getattr(self, metric_type)
+
+            # Collect all keys
+            all_keys = set()
+            for model in self.models:
+                all_keys.update(getattr(model, metric_type).keys())
+
+            for key in all_keys:
+                values = [
+                    getattr(m, metric_type).get(key)
+                    for m in self.models
+                    if key in getattr(m, metric_type)
+                ]
+                if values:
+                    target_dict[f"mean_{key}"] = float(np.mean(values))

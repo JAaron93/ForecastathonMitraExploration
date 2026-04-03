@@ -174,6 +174,7 @@ class XGBoostModel(BaseModel):
         """
         n_trials = params.get("n_trials", 20)
         n_splits = params.get("n_splits", 3)  # Using 3 for speed in default
+        time_limit = params.get("time_limit", None)  # New: Time limit for optimization
         metric = params.get("metric", "rmse")
 
         if metric not in ["rmse", "accuracy", "logloss"]:
@@ -221,21 +222,19 @@ class XGBoostModel(BaseModel):
                 elif metric == "accuracy":
                     score = accuracy_score(y_val, preds)
                     score = 1 - score  # Optuna minimizes
-                elif metric == "logloss":
-                    # For logloss we need probas
+                else:  # metric is "logloss" due to prior validation
                     if hasattr(model, "predict_proba"):
                         proba = model.predict_proba(X_val)
                         score = log_loss(y_val, proba)
                     else:
-                        score = 0.0  # Should fail for reg
-                else:
-                    # Default/fallback is rmse
-                    score = np.sqrt(mean_squared_error(y_val, preds))
+                        raise ValueError(
+                            f"Model {type(model).__name__} does not support 'predict_proba', but metric '{metric}' was requested. Ensure the objective supports classification."
+                        )
 
                 scores.append(score)
 
             return np.mean(scores)
 
         study = optuna.create_study(direction="minimize")
-        study.optimize(objective, n_trials=n_trials)
+        study.optimize(objective, n_trials=n_trials, timeout=time_limit)
         return study.best_params

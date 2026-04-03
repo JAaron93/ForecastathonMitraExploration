@@ -166,7 +166,7 @@ class TestRunRetrieval:
         local_tracker.end_run()
         runs = local_tracker.list_runs()
 
-        assert len(runs) >= 2
+        assert len(runs) == 2
         assert all(isinstance(r, ExperimentRun) for r in runs)
 
     def test_list_runs_respects_max_results(self, local_tracker):
@@ -174,7 +174,7 @@ class TestRunRetrieval:
             local_tracker.start_run()
             local_tracker.end_run()
         runs = local_tracker.list_runs(max_results=3)
-        assert len(runs) <= 3
+        assert len(runs) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -228,10 +228,10 @@ class TestContextManager:
         except RuntimeError:
             pass
 
-        if run_id:
-            saved = local_tracker.get_run(run_id)
-            assert saved is not None
-            assert saved.status == "failed"
+        assert run_id is not None  # Ensure a run_id was indeed created
+        saved = local_tracker.get_run(run_id)
+        assert saved is not None
+        assert saved.status == "failed"
 
 
 # ---------------------------------------------------------------------------

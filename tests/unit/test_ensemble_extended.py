@@ -123,7 +123,7 @@ def test_ensemble_fit(mock_models):
     assert not ensemble.is_fitted
     ensemble.fit(X, y)
     assert ensemble.is_fitted
-    assert ensemble.training_time == 3.0
+    assert ensemble.training_time == pytest.approx(3.0)
     for m in mock_models:
         m.fit.assert_called_once()
 

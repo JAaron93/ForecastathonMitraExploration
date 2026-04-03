@@ -1,6 +1,7 @@
 """Extended unit tests for XGBoostModel coverages including optuna."""
 
-from unittest.mock import MagicMock, patch
+import logging
+from unittest.mock import ANY, MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -131,13 +132,52 @@ class TestXGBoostOptimize:
         X, y = regression_data
         model = XGBoostModel(objective="reg:squarederror")
         # Unknown metric falls back to rmse
+        with caplog.at_level(logging.WARNING):
+            model.fit(
+                X,
+                y,
+                optimize=True,
+                optimization_params={"n_trials": 1, "n_splits": 2, "metric": "unknown"},
+            )
+        assert model.is_fitted
+        assert (
+            "Unknown metric 'unknown' provided. Falling back to 'rmse'." in caplog.text
+        )
+
+    def test_optimize_regression_logloss_raises(self, regression_data):
+        X, y = regression_data
+        model = XGBoostModel(objective="reg:squarederror")
+        with pytest.raises(
+            ValueError,
+            match="does not support 'predict_proba', but metric 'logloss' was requested",
+        ):
+            model.fit(
+                X,
+                y,
+                optimize=True,
+                optimization_params={"n_trials": 1, "n_splits": 2, "metric": "logloss"},
+            )
+
+    @patch("optuna.create_study")
+    def test_optimize_time_limit(self, mock_create_study, regression_data):
+        X, y = regression_data
+        model = XGBoostModel(objective="reg:squarederror")
+        mock_study = MagicMock()
+        mock_create_study.return_value = mock_study
+
+        test_time_limit = 10
+
         model.fit(
             X,
             y,
             optimize=True,
-            optimization_params={"n_trials": 1, "n_splits": 2, "metric": "unknown"},
+            optimization_params={
+                "n_trials": 1,
+                "n_splits": 2,
+                "time_limit": test_time_limit,
+            },
         )
-        assert model.is_fitted
-        assert (
-            "Unknown metric 'unknown' provided. Falling back to 'rmse'." in caplog.text
+
+        mock_study.optimize.assert_called_once_with(
+            ANY, n_trials=1, timeout=test_time_limit
         )

@@ -1,12 +1,14 @@
 """Data loading utilities for Parquet files and schema validation."""
 
-from typing import Dict, Optional, Any, List
-from dataclasses import dataclass
-import pandas as pd
 import json
 import logging
-from pathlib import Path
+from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+import pyarrow as pa
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +67,10 @@ class DataLoader:
         try:
             df = pd.read_parquet(path)
             logger.info(f"Loaded {len(df)} rows from {path}")
-        except pd.errors.ParserError as e:
+        except (pd.errors.ParserError, pa.ArrowInvalid) as e:
             error_msg = f"Error parsing Parquet file {path}: {e}"
+            if isinstance(e, pa.ArrowInvalid):
+                raise pa.ArrowInvalid(error_msg) from e
             raise pd.errors.ParserError(error_msg) from e
         except OSError as e:
             error_msg = f"OS error reading Parquet file {path}: {e}"

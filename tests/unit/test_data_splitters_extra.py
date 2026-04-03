@@ -1,9 +1,11 @@
 """Additional unit tests for TimeSeriesSplitter and TimeSeriesAligner."""
+
 import json
-import pytest
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
+import pytest
 
 from src.data.splitters import (
     SplitIndices,
@@ -11,21 +13,25 @@ from src.data.splitters import (
     TimeSeriesSplitter,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def daily_df():
+    np.random.seed(42)
     n = 200
     idx = pd.date_range("2022-01-01", periods=n, freq="D")
-    return pd.DataFrame({"close": np.random.rand(n), "volume": np.random.rand(n)}, index=idx)
+    return pd.DataFrame(
+        {"close": np.random.rand(n), "volume": np.random.rand(n)}, index=idx
+    )
 
 
 # ---------------------------------------------------------------------------
 # SplitIndices serialization
 # ---------------------------------------------------------------------------
+
 
 class TestSplitIndicesSerialization:
     def test_to_dict_from_dict_roundtrip(self):
@@ -41,10 +47,73 @@ class TestSplitIndicesSerialization:
         assert restored.test_indices == s.test_indices
         assert restored.metadata == s.metadata
 
+    def test_to_dict_from_dict_with_empty_metadata(self):
+        s = SplitIndices(
+            train_indices=list(range(100)),
+            validation_indices=list(range(100, 140)),
+            test_indices=list(range(140, 200)),
+            metadata={},
+        )
+        restored = SplitIndices.from_dict(s.to_dict())
+        assert restored.metadata == s.metadata
+
+    def test_to_dict_from_dict_with_none_metadata(self):
+        s = SplitIndices(
+            train_indices=list(range(100)),
+            validation_indices=list(range(100, 140)),
+            test_indices=list(range(140, 200)),
+            metadata=None,
+        )
+        restored = SplitIndices.from_dict(s.to_dict())
+        assert restored.metadata == s.metadata
+
+    def test_to_dict_from_dict_with_complex_metadata(self):
+        complex_meta = {"config": {"nested": "value"}, "list": [1, 2, 3]}
+        s = SplitIndices(
+            train_indices=list(range(100)),
+            validation_indices=list(range(100, 140)),
+            test_indices=list(range(140, 200)),
+            metadata=complex_meta,
+        )
+        restored = SplitIndices.from_dict(s.to_dict())
+        assert restored.metadata == s.metadata
+
+    def test_to_dict_from_dict_with_empty_metadata(self):
+        s = SplitIndices(
+            train_indices=list(range(100)),
+            validation_indices=list(range(100, 140)),
+            test_indices=list(range(140, 200)),
+            metadata={},
+        )
+        restored = SplitIndices.from_dict(s.to_dict())
+        assert restored.metadata == s.metadata
+
+    def test_to_dict_from_dict_with_none_metadata(self):
+        s = SplitIndices(
+            train_indices=list(range(100)),
+            validation_indices=list(range(100, 140)),
+            test_indices=list(range(140, 200)),
+            metadata=None,
+        )
+        restored = SplitIndices.from_dict(s.to_dict())
+        assert restored.metadata == s.metadata
+
+    def test_to_dict_from_dict_with_complex_metadata(self):
+        complex_meta = {"config": {"nested": "value"}, "list": [1, 2, 3]}
+        s = SplitIndices(
+            train_indices=list(range(100)),
+            validation_indices=list(range(100, 140)),
+            test_indices=list(range(140, 200)),
+            metadata=complex_meta,
+        )
+        restored = SplitIndices.from_dict(s.to_dict())
+        assert restored.metadata == s.metadata
+
 
 # ---------------------------------------------------------------------------
 # TimeSeriesSplitter.train_val_test_split
 # ---------------------------------------------------------------------------
+
 
 class TestTrainValTestSplit:
     def test_basic_split_proportions(self, daily_df):
@@ -54,7 +123,9 @@ class TestTrainValTestSplit:
         assert split.train_indices[-1] < split.validation_indices[0]
         assert split.validation_indices[-1] < split.test_indices[0]
         assert (
-            len(split.train_indices) + len(split.validation_indices) + len(split.test_indices)
+            len(split.train_indices)
+            + len(split.validation_indices)
+            + len(split.test_indices)
             == n
         )
 
@@ -75,10 +146,15 @@ class TestTrainValTestSplit:
 # TimeSeriesSplitter.rolling_window_split
 # ---------------------------------------------------------------------------
 
+
 class TestRollingWindowSplit:
     def test_yields_correct_indices(self, daily_df):
         splitter = TimeSeriesSplitter()
-        folds = list(splitter.rolling_window_split(daily_df, train_size=100, val_size=30, test_size=20))
+        folds = list(
+            splitter.rolling_window_split(
+                daily_df, train_size=100, val_size=30, test_size=20
+            )
+        )
         assert len(folds) > 0
         first = folds[0]
         assert len(first.train_indices) == 100
@@ -99,17 +175,26 @@ class TestRollingWindowSplit:
         splitter = TimeSeriesSplitter()
         tiny_df = pd.DataFrame({"a": range(10)})
         with pytest.raises(ValueError, match="Window size"):
-            list(splitter.rolling_window_split(tiny_df, train_size=5, val_size=4, test_size=4))
+            list(
+                splitter.rolling_window_split(
+                    tiny_df, train_size=5, val_size=4, test_size=4
+                )
+            )
 
 
 # ---------------------------------------------------------------------------
 # TimeSeriesSplitter.expanding_window_split
 # ---------------------------------------------------------------------------
 
+
 class TestExpandingWindowSplit:
     def test_train_grows_with_each_fold(self, daily_df):
         splitter = TimeSeriesSplitter()
-        folds = list(splitter.expanding_window_split(daily_df, initial_train_size=100, val_size=20, test_size=10))
+        folds = list(
+            splitter.expanding_window_split(
+                daily_df, initial_train_size=100, val_size=20, test_size=10
+            )
+        )
         assert len(folds) > 1
         for i in range(1, len(folds)):
             assert len(folds[i].train_indices) >= len(folds[i - 1].train_indices)
@@ -118,12 +203,17 @@ class TestExpandingWindowSplit:
         splitter = TimeSeriesSplitter()
         tiny_df = pd.DataFrame({"a": range(5)})
         with pytest.raises(ValueError, match="Minimum window size"):
-            list(splitter.expanding_window_split(tiny_df, initial_train_size=4, val_size=2, test_size=1))
+            list(
+                splitter.expanding_window_split(
+                    tiny_df, initial_train_size=4, val_size=2, test_size=1
+                )
+            )
 
 
 # ---------------------------------------------------------------------------
 # TimeSeriesSplitter.save/load split indices
 # ---------------------------------------------------------------------------
+
 
 class TestSaveLoadSplitIndices:
     def test_save_and_load_roundtrip(self, tmp_path, daily_df):
@@ -156,6 +246,7 @@ class TestSaveLoadSplitIndices:
 # TimeSeriesSplitter.apply_split
 # ---------------------------------------------------------------------------
 
+
 class TestApplySplit:
     def test_apply_split_returns_three_dataframes(self, daily_df):
         splitter = TimeSeriesSplitter()
@@ -170,6 +261,7 @@ class TestApplySplit:
 # ---------------------------------------------------------------------------
 # TimeSeriesSplitter.validate_no_leakage
 # ---------------------------------------------------------------------------
+
 
 class TestValidateNoLeakage:
     def test_valid_split_passes(self, daily_df):
@@ -195,6 +287,7 @@ class TestValidateNoLeakage:
 # ---------------------------------------------------------------------------
 # TimeSeriesAligner
 # ---------------------------------------------------------------------------
+
 
 class TestTimeSeriesAligner:
     def test_align_two_series_outer(self):
@@ -229,4 +322,4 @@ class TestTimeSeriesAligner:
         df2 = pd.DataFrame({"b": range(5)}, index=idx2)
         result = aligner.align_timeseries([df1, df2], method="inner")
         # inner intersection starts at the later of the two starts
-        assert result.index.min() >= idx2.min()
+        assert result.index.min() == idx2.min()

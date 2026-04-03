@@ -144,3 +144,4 @@ class TestFeatureImportance:
         model.calculate_permutation_importance(X, y, n_repeats=2)
         importance = model.get_feature_importance()
         assert len(importance) == 3  # f1, f2, f3
+

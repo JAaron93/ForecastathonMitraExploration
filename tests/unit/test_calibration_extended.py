@@ -37,7 +37,7 @@ def analyzer():
 
 class TestComputeCalibrationCurve:
     def test_basic_output_shape(self, analyzer, binary_data):
-        y_true, y_proba = binary_data
+        _, y_proba = binary_data
         curve = analyzer.compute_calibration_curve(y_true, y_proba)
         assert len(curve.bin_centers) == analyzer.n_bins
         assert len(curve.bin_accuracies) == analyzer.n_bins
